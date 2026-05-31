@@ -1,0 +1,255 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { App, Button, Dropdown, Input, Menu, Modal, Tooltip } from 'antd'
+import { MoreOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import type { MenuProps } from 'antd'
+import type { Chapter } from '../../../shared/types'
+import { api } from '../api'
+
+interface Props { chapters: Chapter[]; activeId: string | null; onJump: (id: string) => void }
+
+const volKey = (volume: string) => `vol:${volume}`
+
+/** 章节行标签:标题 + 悬停可见的「⋯」操作菜单。操作触发器 stopPropagation,避免触发跳转。 */
+function ChapterLabel({
+  chapter, onRename, onDelete,
+}: { chapter: Chapter; onRename: (c: Chapter) => void; onDelete: (c: Chapter) => void }) {
+  const items: MenuProps['items'] = [
+    { key: 'rename', label: '重命名' },
+    { key: 'delete', label: '删除', danger: true },
+  ]
+  if (!api.canEdit) {
+    // 只读(静态)模式:不显示重命名 / 删除入口。
+    return <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chapter.title}</span>
+  }
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chapter.title}</span>
+      <Dropdown
+        trigger={['click']}
+        menu={{
+          items,
+          onClick: ({ key, domEvent }) => {
+            domEvent.stopPropagation()
+            if (key === 'rename') onRename(chapter)
+            else if (key === 'delete') onDelete(chapter)
+          },
+        }}
+      >
+        <span
+          role="button"
+          aria-label="章节操作"
+          className="cv-toc-actions"
+          onClick={(e) => e.stopPropagation()}
+          style={{ flex: '0 0 auto', cursor: 'pointer', opacity: 0.55, padding: '0 2px' }}
+        >
+          <MoreOutlined />
+        </span>
+      </Dropdown>
+    </span>
+  )
+}
+
+/** 按 volume 把(已排序的)章节分组:连续同卷合并为一个 SubMenu,null 卷为顶层项。 */
+function buildItems(
+  chapters: Chapter[],
+  onRename: (c: Chapter) => void,
+  onDelete: (c: Chapter) => void,
+): MenuProps['items'] {
+  const items: NonNullable<MenuProps['items']> = []
+  let group: { volume: string; children: NonNullable<MenuProps['items']> } | null = null
+  const mk = (c: Chapter) => ({
+    key: c.id,
+    label: <ChapterLabel chapter={c} onRename={onRename} onDelete={onDelete} />,
+    title: c.path,
+  })
+  for (const c of chapters) {
+    if (c.volume === null) {
+      group = null
+      items.push(mk(c))
+      continue
+    }
+    if (!group || group.volume !== c.volume) {
+      group = { volume: c.volume, children: [] }
+      items.push({ key: volKey(c.volume), label: c.volume, children: group.children })
+    }
+    group.children.push(mk(c))
+  }
+  return items
+}
+
+export function TocPanel({ chapters, activeId, onJump }: Props) {
+  const { message } = App.useApp()
+  const ref = useRef<HTMLDivElement>(null)
+  const [filter, setFilter] = useState('')
+  const [openKeys, setOpenKeys] = useState<string[]>([])
+
+  // 新建 / 重命名 / 删除 弹窗状态(声明式 Modal,受控)。
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createTitle, setCreateTitle] = useState('')
+  const [renameTarget, setRenameTarget] = useState<Chapter | null>(null)
+  const [renameTitle, setRenameTitle] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<Chapter | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const openRename = (c: Chapter) => { setRenameTarget(c); setRenameTitle(c.title) }
+
+  const doCreate = async () => {
+    const title = createTitle.trim()
+    if (!title) return
+    setBusy(true)
+    try {
+      await api.createChapter({ title, afterId: activeId ?? undefined })
+      setCreateOpen(false); setCreateTitle('')
+    } catch (e: any) {
+      message.error(e?.body?.message ?? '操作失败') // 失败保持弹窗,便于用户修正
+    } finally { setBusy(false) }
+  }
+  const doRename = async () => {
+    const title = renameTitle.trim()
+    if (!title || !renameTarget) return
+    setBusy(true)
+    try {
+      await api.renameChapter(renameTarget.id, title)
+      setRenameTarget(null)
+    } catch (e: any) {
+      message.error(e?.body?.message ?? '操作失败')
+    } finally { setBusy(false) }
+  }
+  const doDelete = async () => {
+    if (!deleteTarget) return
+    setBusy(true)
+    try {
+      await api.deleteChapter(deleteTarget.id)
+      setDeleteTarget(null)
+    } catch (e: any) {
+      message.error(e?.body?.message ?? '操作失败')
+    } finally { setBusy(false) }
+  }
+
+  // 过滤:按标题或卷名做不区分大小写匹配;无过滤时保留完整分组结构。
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    if (!q) return chapters
+    return chapters.filter(
+      (c) => c.title.toLowerCase().includes(q) || (c.volume ?? '').toLowerCase().includes(q),
+    )
+  }, [chapters, filter])
+
+  const items = useMemo(
+    () => buildItems(filtered, openRename, (c) => setDeleteTarget(c)),
+    [filtered],
+  )
+
+  // 当前章所属卷的 key(用于自动展开)。
+  const activeVolKey = useMemo(() => {
+    const c = chapters.find((x) => x.id === activeId)
+    return c?.volume ? volKey(c.volume) : null
+  }, [chapters, activeId])
+
+  // activeId 变化时,确保当前章所在 SubMenu 处于展开(合并,不收起用户已开的其它卷)。
+  useEffect(() => {
+    if (!activeVolKey) return
+    setOpenKeys((prev) => (prev.includes(activeVolKey) ? prev : [...prev, activeVolKey]))
+  }, [activeVolKey])
+
+  // 过滤时把命中卷全部展开,方便看到嵌套结果。
+  useEffect(() => {
+    if (!filter.trim()) return
+    const volKeys = (items ?? [])
+      .map((it) => it?.key)
+      .filter((k): k is string => typeof k === 'string' && k.startsWith('vol:'))
+    setOpenKeys((prev) => Array.from(new Set([...prev, ...volKeys])))
+  }, [filter, items])
+
+  // 阅读滚动时,让 TOC 自动滚动到当前章节,保持高亮项可见。
+  useEffect(() => {
+    if (!activeId) return
+    const el = ref.current?.querySelector<HTMLElement>('.ant-menu-item-selected')
+    // jsdom 等环境可能未实现 scrollIntoView,做存在性保护
+    if (typeof el?.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+  }, [activeId, openKeys])
+
+  return (
+    <div ref={ref}>
+      <div style={{ padding: '8px 12px', display: 'flex', gap: 8 }}>
+        <Input
+          allowClear
+          prefix={<SearchOutlined />}
+          placeholder="过滤章节…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        {api.canEdit ? (
+          <Tooltip title="新建章节">
+            <Button
+              icon={<PlusOutlined />}
+              aria-label="新建章节"
+              onClick={() => { setCreateTitle(''); setCreateOpen(true) }}
+            />
+          </Tooltip>
+        ) : null}
+      </div>
+      <Menu
+        mode="inline"
+        items={items}
+        selectedKeys={activeId ? [activeId] : []}
+        openKeys={openKeys}
+        onOpenChange={(keys) => setOpenKeys(keys as string[])}
+        onClick={({ key }) => { if (!key.startsWith('vol:')) onJump(key) }}
+        style={{ borderInlineEnd: 'none' }}
+      />
+
+      <Modal
+        title="新建章节"
+        open={createOpen}
+        confirmLoading={busy}
+        okText="创建"
+        cancelText="取消"
+        onOk={doCreate}
+        onCancel={() => setCreateOpen(false)}
+        destroyOnHidden
+      >
+        <Input
+          autoFocus
+          placeholder="章节标题"
+          value={createTitle}
+          onChange={(e) => setCreateTitle(e.target.value)}
+          onPressEnter={doCreate}
+        />
+      </Modal>
+
+      <Modal
+        title="重命名章节"
+        open={!!renameTarget}
+        confirmLoading={busy}
+        okText="保存"
+        cancelText="取消"
+        onOk={doRename}
+        onCancel={() => setRenameTarget(null)}
+        destroyOnHidden
+      >
+        <Input
+          autoFocus
+          placeholder="新的标题"
+          value={renameTitle}
+          onChange={(e) => setRenameTitle(e.target.value)}
+          onPressEnter={doRename}
+        />
+      </Modal>
+
+      <Modal
+        title="删除章节"
+        open={!!deleteTarget}
+        confirmLoading={busy}
+        okText="删除"
+        okButtonProps={{ danger: true }}
+        cancelText="取消"
+        onOk={doDelete}
+        onCancel={() => setDeleteTarget(null)}
+        destroyOnHidden
+      >
+        确定删除「{deleteTarget?.title}」？此操作不可撤销。
+      </Modal>
+    </div>
+  )
+}

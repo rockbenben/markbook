@@ -1,0 +1,77 @@
+:root {
+  --bg: #ffffff; --fg: #1a1a1a; --muted: #666; --border: #e2e2e2;
+  --accent: #3b6ea5; --panel: #f7f7f7; --active: #e8f0fb;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.22); --scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
+}
+[data-theme='dark'] {
+  --bg: #1e1e1e; --fg: #e6e6e6; --muted: #999; --border: #333;
+  --accent: #6aa0e0; --panel: #252526; --active: #2d3a4d;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.22); --scrollbar-thumb-hover: rgba(255, 255, 255, 0.42);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+/* 滚动条跟随主题 */
+* { scrollbar-color: var(--scrollbar-thumb) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); background-clip: content-box; }
+
+/* 内容区:Virtuoso 自身是滚动容器;阅读样式变量在此元素上,向 .chapter 级联。
+   背景/前景已由 antd 全局主题提供,这里只管字号/行距/字体/页宽。 */
+.main { min-height: 0; min-width: 0; }
+
+/* 窄屏防横向溢出:让 Layout 的 flex 子项(尤其内容列)能收缩到容器宽度以下,
+   否则固定宽度的子内容会撑出横向滚动条。max-width 阅读栏逻辑(.chapter)不受影响。 */
+.ant-layout, .ant-layout-content { min-width: 0; }
+.chapter {
+  border-bottom: 1px dashed var(--border);
+  padding: 24px 0;
+  font-size: var(--reading-font-size, 16px);
+  line-height: var(--reading-line-height, 1.8);
+  font-family: var(--reading-font-family, inherit);
+  max-width: var(--reading-max-width, none);
+  margin: 0 auto;
+}
+.chapter h2.chapter-title { color: var(--accent); }
+/* 中文小说排版:首行缩进(可切换)+ 段间距。 */
+.chapter p { text-indent: var(--reading-indent, 2em); margin: 0 0 0.8em; }
+pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; background: var(--panel); padding: 12px; border-radius: 6px; }
+
+/* 搜索命中高亮(CSS Custom Highlight API)。半透明黄,明暗背景下都清晰且不夺色。 */
+::highlight(cv-search) { background-color: rgba(250, 204, 21, 0.45); border-radius: 2px; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* 章节编辑器:作为 Drawer body 渲染。控件行常驻,分栏区填满抽屉高度、各自内部滚动。 */
+.chapter-editor { display: flex; flex-direction: column; height: 100%; }
+.chapter-editor-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.chapter-editor-status { color: var(--muted); font-size: 12px; }
+.chapter-editor .split { grid-template-columns: 1fr 1fr; gap: 14px; }
+
+.chapter-editor-host,
+.chapter-editor-preview {
+  height: calc(100vh - 160px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.chapter-editor-host { padding: 0; overflow: hidden; } /* CodeMirror 自身滚动 */
+.chapter-editor-preview { overflow: auto; padding: 10px 18px; line-height: 1.85; }
+.chapter-editor-preview > :first-child { margin-top: 0; }
+.chapter-editor-host .cm-editor { height: 100%; background: var(--bg); }
+.chapter-editor-host .cm-scroller {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.85;
+  padding: 8px 6px;
+}
+.chapter-editor-host .cm-content { caret-color: var(--accent); }
+.chapter-editor-host .cm-gutters { background: var(--panel); border: none; }
+.chapter-editor-host .cm-activeLine { background: var(--active); }
+.chapter-editor-host .cm-cursor { border-left-color: var(--accent); }

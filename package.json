@@ -1,0 +1,88 @@
+{
+  "name": "markbook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "本地 Markdown / 纯文本聚合阅读 & 编辑器:把一个文件夹或一个大文件的散落文本,聚合成一本连续、可搜索、可编辑的书。纯本地、零上传。",
+  "license": "MIT",
+  "author": "rockbenben",
+  "homepage": "https://github.com/rockbenben/markbook#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rockbenben/markbook.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rockbenben/markbook/issues"
+  },
+  "keywords": [
+    "markdown",
+    "reader",
+    "editor",
+    "ebook",
+    "local-first",
+    "novel",
+    "documentation",
+    "epub",
+    "full-text-search",
+    "codemirror"
+  ],
+  "bin": {
+    "markbook": "dist/server/index.js"
+  },
+  "scripts": {
+    "dev:client": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "build": "vite build && tsc -p tsconfig.server.json --noEmit && esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/server/index.js",
+    "build:static": "vite build --mode static",
+    "start": "node dist/server/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.2.5",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-markdown": "^6.3.0",
+    "@codemirror/search": "^6.7.0",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/view": "^6.34.0",
+    "@fastify/static": "^8.0.0",
+    "@fastify/websocket": "^11.0.0",
+    "antd": "^6.4.3",
+    "chokidar": "^4.0.1",
+    "codemirror": "^6.0.1",
+    "epub-gen-memory": "^1.1.2",
+    "fastify": "^5.0.0",
+    "flexsearch": "^0.7.43",
+    "open": "^10.1.0",
+    "picomatch": "^4.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "react-virtuoso": "^4.18.7",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-slug": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.0.1",
+    "@types/node": "^22.7.0",
+    "@types/picomatch": "^3.0.1",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "concurrently": "^9.0.1",
+    "esbuild": "^0.28.0",
+    "jsdom": "^25.0.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.8",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^2.1.2"
+  }
+}

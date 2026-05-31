@@ -1,0 +1,52 @@
+name: CI
+
+# 推到默认分支(或手动触发)时跑类型检查 + 测试 + 静态构建,并把静态版发布到部署分支。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 默认最小权限(只读);只有需要推送部署分支的 job 才单独提升到 write。
+permissions:
+  contents: read
+
+# 同一分支的新推送取消仍在跑的旧任务,避免并行部署互相覆盖。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Type-check, test, build & deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15 # 防止卡死任务长期占用 runner
+    permissions:
+      contents: write # JamesIves action 需要写权限才能推送到部署分支
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check (client + core + shared + tests)
+        run: npx tsc -p tsconfig.json --noEmit
+
+      - name: Type-check (server + core + shared)
+        run: npx tsc -p tsconfig.server.json --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build static site
+        run: npm run build:static
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          # 部署到的分支名称(改这里即可换分支)。
+          branch: gh-pages
+          folder: dist/static
