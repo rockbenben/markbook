@@ -32,6 +32,24 @@ async function cvFetch(input: string, init: RequestInit = {}): Promise<Response>
   return res
 }
 
+/** PUT /api/config 并把 root/排序/标题来源 + 最近来源镜像到本浏览器;setConfig 与 openRecent 共用。 */
+async function putConfig(patch: Partial<AppConfig>): Promise<AppConfig> {
+  const cfg = await cvFetch('/api/config', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) }).then(json<AppConfig>)
+  const cur = loadBrowserConfig()
+  // patch 带 root(切库)时把新 root 置顶进最近列表;否则沿用,供刷新/重启后重新下发。
+  const recentRoots = patch.root ? pushRecentRoot(cur.recentRoots, cfg.root) : cur.recentRoots
+  saveBrowserConfig({ root: cfg.root, sortMode: cfg.sortMode, titleSource: cfg.titleSource, recentRoots })
+  return { ...cfg, recentRoots }
+}
+
+/** 路径末段作显示名(兼容 / 与 \ 分隔)。 */
+function recentName(p: string): string {
+  const seg = p.replace(/[/\\]+$/, '').split(/[/\\]/).pop()
+  return seg && seg.length ? seg : p
+}
+/** 根据扩展名粗判来源类型(供「最近」列表选图标);无 .md/.txt 后缀视为目录。 */
+function recentKind(p: string): string { return /\.(md|txt)$/i.test(p) ? 'file' : 'directory' }
+
 /** 现有 Fastify HTTP + WebSocket 后端(本地全功能模式)。 */
 const serverApi: Backend = {
   mode: 'server',
@@ -71,13 +89,17 @@ const serverApi: Backend = {
     const cfg = await cvFetch('/api/config').then(json<AppConfig>)
     return { ...cfg, recentRoots: loadBrowserConfig().recentRoots }
   },
-  setConfig: async (patch) => {
-    const cfg = await cvFetch('/api/config', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) }).then(json<AppConfig>)
-    // 镜像到本浏览器:记住 root/排序/标题来源 + 最近来源,供刷新/重启后由本浏览器重新下发。
-    const cur = loadBrowserConfig()
-    const recentRoots = patch.root ? pushRecentRoot(cur.recentRoots, cfg.root) : cur.recentRoots
-    saveBrowserConfig({ root: cfg.root, sortMode: cfg.sortMode, titleSource: cfg.titleSource, recentRoots })
-    return { ...cfg, recentRoots }
+  setConfig: (patch) => putConfig(patch),
+  // 最近来源:服务端模式以本浏览器记住的 recentRoots(路径数组)为准,与静态版共用顶栏入口。
+  listRecents: async () => (loadBrowserConfig().recentRoots ?? []).map((p, id) => ({ id, name: recentName(p), kind: recentKind(p) })),
+  openRecent: async (id) => {
+    const root = (loadBrowserConfig().recentRoots ?? [])[id]
+    if (!root) return false
+    try { await putConfig({ root }); return true } catch { return false } // 路径已不可用:保持当前库
+  },
+  removeRecent: async (id) => {
+    const recentRoots = (loadBrowserConfig().recentRoots ?? []).filter((_, i) => i !== id)
+    saveBrowserConfig({ recentRoots })
   },
   // 刷新/重开后:把本浏览器记住的来源重新下发给服务端(令其扫描上次的文件夹)。
   restore: async () => {

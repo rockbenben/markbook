@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Empty, Flex, List, Popover, Segmented, Space, Tooltip, Typography } from 'antd'
 import {
-  BookOutlined, BulbOutlined, CloseOutlined, FullscreenOutlined, LeftOutlined,
+  BookOutlined, BulbOutlined, CloseOutlined, FullscreenOutlined, GithubOutlined, LeftOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ReloadOutlined, RightOutlined,
   SettingOutlined, StarFilled, StarOutlined,
 } from '@ant-design/icons'
@@ -13,6 +13,7 @@ import { ReplaceModal } from './ReplaceModal'
 import { SettingsPanel } from './SettingsPanel'
 import { ReadingSettings } from './ReadingSettings'
 import { ExportModal } from './ExportModal'
+import { RecentMenu } from './RecentMenu'
 
 function jumpTo(id: string) {
   window.dispatchEvent(new CustomEvent('cv:jump', { detail: id }))
@@ -152,6 +153,7 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
         </Tooltip>
         {api.canExport ? <ExportModal /> : null}
         <ReadingSettings />
+        <RecentMenu />
         <Button icon={<SettingOutlined />} onClick={() => setSettingsOpen((v) => !v)}>设置</Button>
         {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
         <Tooltip title={themeLocked ? '明暗由阅读背景决定，选择「默认」背景可手动切换' : theme === 'light' ? '切换暗色' : '切换亮色'}>
@@ -165,6 +167,15 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
               style={themeLocked ? { pointerEvents: 'none' } : undefined}
             />
           </span>
+        </Tooltip>
+        <Tooltip title="GitHub 仓库">
+          <Button
+            icon={<GithubOutlined />}
+            href="https://github.com/rockbenben/markbook"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub 仓库"
+          />
         </Tooltip>
       </Space>
     </Flex>

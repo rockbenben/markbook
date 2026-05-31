@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Tag, Tooltip, Tree, Typography } from 'antd'
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Tree, Typography } from 'antd'
 import { FolderOutlined, FileTextOutlined, UpOutlined } from '@ant-design/icons'
 import type { TreeDataNode } from 'antd'
 import { api } from '../api'
@@ -29,11 +29,6 @@ function dirNode(path: string, label?: string): TreeDataNode {
 function fileNode(path: string, label: string): TreeDataNode {
   return { key: path, title: label, icon: <FileTextOutlined />, isLeaf: true }
 }
-/** 取路径末段作为简短标签(兼容 / 与 \ 分隔;末尾分隔符忽略)。 */
-function baseName(p: string): string {
-  const seg = p.replace(/[/\\]+$/, '').split(/[/\\]/).pop()
-  return seg && seg.length ? seg : p
-}
 /** 把 browse 结果的 dirs+files 组装成树子节点(目录在前)。 */
 function childrenOf(basePath: string, dirs: string[], files: string[] | undefined): TreeDataNode[] {
   return [
@@ -58,9 +53,6 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [parent, setParent] = useState<string | null>(null)
   const [drives, setDrives] = useState<string[]>([])
   const [browseErr, setBrowseErr] = useState<string | null>(null)
-  const [recentRoots, setRecentRoots] = useState<string[]>([])
-
-  const pickRecent = (r: string) => { form.setFieldsValue({ root: r }); setSelectedKeys([r]); void loadRoot(r) }
 
   async function loadRoot(p?: string) {
     setBrowseErr(null)
@@ -93,7 +85,6 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         const cfg = await api.getConfig()
         if (!alive) return
         form.setFieldsValue({ root: cfg.root, sortMode: cfg.sortMode, titleSource: cfg.titleSource })
-        setRecentRoots(cfg.recentRoots ?? [])
         if (!browser) await loadRoot(cfg.root || undefined) // 浏览器模式无服务端目录树
       } catch { /* 预填失败保持默认 */ }
     })()
@@ -147,24 +138,6 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             <Form.Item label="根目录" name="root" rules={[{ required: true, message: '请输入或选择根目录' }]}>
               <Input placeholder="包含 .md / .txt 的文件夹，或单个文本文件" />
             </Form.Item>
-
-            {recentRoots.length > 1 ? (
-              <Form.Item label="最近书库">
-                <Space size={[4, 4]} wrap>
-                  {recentRoots.map((r) => (
-                    <Tooltip key={r} title={r}>
-                      <Tag.CheckableTag
-                        checked={false}
-                        onChange={() => pickRecent(r)}
-                        style={{ cursor: 'pointer', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      >
-                        {baseName(r)}
-                      </Tag.CheckableTag>
-                    </Tooltip>
-                  ))}
-                </Space>
-              </Form.Item>
-            ) : null}
 
             <Form.Item label="目录浏览">
               <Space style={{ marginBottom: 8 }} wrap>
