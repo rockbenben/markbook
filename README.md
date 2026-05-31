@@ -5,7 +5,6 @@
 [![CI](https://github.com/rockbenben/markbook/actions/workflows/ci.yml/badge.svg)](https://github.com/rockbenben/markbook/actions/workflows/ci.yml)
 [![Deploy: GitHub Pages](https://img.shields.io/badge/deploy-gh--pages-1677ff)](https://rockbenben.github.io/markbook/)
 [![PWA](https://img.shields.io/badge/PWA-installable%20%2F%20offline-5a0fc8)](docs/DEPLOY.md)
-![Stack](https://img.shields.io/badge/React%2018-TypeScript-Vite-61dafb)
 ![Privacy](https://img.shields.io/badge/纯本地-零上传-2ea44f)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
