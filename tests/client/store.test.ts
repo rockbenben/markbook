@@ -68,6 +68,22 @@ describe('applyContent — contentById 随增量推进', () => {
     useStore.getState().apply({ type: 'reset', chapters: [ch('a', 'A')] })
     expect(useStore.getState().contentById).toEqual({})
   })
+  it('reset 自增 contentNonce,促使已挂载的可见章重取(修复:连接快照清空后当前章卡「加载中」)', () => {
+    useStore.setState({
+      chapters: [ch('a', 'A')],
+      contentById: { a: { mtime: 1, text: 'A body' } },
+      contentNonce: 0,
+      editingId: null,
+    })
+    useStore.getState().apply({ type: 'reset', chapters: [ch('a', 'A')] })
+    expect(useStore.getState().contentById).toEqual({})
+    expect(useStore.getState().contentNonce).toBe(1)
+  })
+  it('非 reset 增量不改动 contentNonce', () => {
+    useStore.setState({ chapters: [ch('a', 'A')], contentNonce: 3, editingId: null })
+    useStore.getState().apply({ type: 'changed', chapter: ch('a', 'A2') })
+    expect(useStore.getState().contentNonce).toBe(3)
+  })
   it('removed 仅丢弃该 id,其它 contentById 条目保留', () => {
     useStore.setState({
       chapters: [ch('a', 'A'), ch('b', 'B')],

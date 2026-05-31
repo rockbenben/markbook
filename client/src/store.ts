@@ -190,13 +190,18 @@ export const useStore = create<State>((set, get) => ({
     if (msg.type === 'reset' || msg.type === 'removed') syncLru(contentById)
     // 任一 reset 到达(含连接快照)即视为已加载:可放心区分空库与加载中。
     const loaded = s.loaded || msg.type === 'reset'
+    // reset 把 contentById 清空成 {}:必须自增 contentNonce,促使「已挂载」的可见章
+    // 重新触发 ensureContent。否则连接快照 / WS 重连(App onOpen 会 apply 一条 reset)
+    // 会清掉刚加载好的当前章正文,而该章的取数 effect 依赖 [id, mtime, contentNonce] 均未变,
+    // 不会重取 —— 当前章永久卡「加载中」,后续滚入的新章因是首次挂载而正常。
+    const nonce = msg.type === 'reset' ? { contentNonce: s.contentNonce + 1 } : {}
     // 若正在编辑的章节已不在新列表中(被外部删除 / reset 后 id 变更),
     // 必须清空编辑草稿,否则旧章节的草稿会被下一次 startEditing(其它章节)误用,
     // 导致用旧内容覆盖另一个文件。
     if (s.editingId !== null && !chapters.some((c) => c.id === s.editingId)) {
-      return { chapters, contentById, loaded, editingId: null, editText: null, editBaseMtime: 0 }
+      return { chapters, contentById, loaded, editingId: null, editText: null, editBaseMtime: 0, ...nonce }
     }
-    return { chapters, contentById, loaded }
+    return { chapters, contentById, loaded, ...nonce }
   }),
   ensureContent: (chapter, attempt = 0) => {
     const s = get()
