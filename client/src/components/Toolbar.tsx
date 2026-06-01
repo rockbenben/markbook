@@ -143,8 +143,9 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
         </Tooltip>
       </Space.Compact>
       <span style={{ flex: 1 }} />
-      {/* 右侧三区:显示 · 书库/位置 · 工具·应用,各区间细分隔线。全部图标/分段 + tooltip,保持一致。 */}
-      <Space size={4}>
+      {/* 右侧三区:显示 · 书库/位置 · 工具·应用,各区间细分隔线。全部图标/分段 + tooltip,保持一致。
+          wrap:窄屏时整组可换行,避免一长条溢出页面宽度。 */}
+      <Space size={4} wrap>
         {/* 显示:视图 / 字体背景 / 沉浸 */}
         <Segmented<ViewMode> options={VIEW_OPTIONS} value={globalView} onChange={setGlobalView} />
         <ReadingSettings />

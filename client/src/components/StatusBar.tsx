@@ -26,8 +26,10 @@ export function StatusBar() {
   }
 
   return (
-    <Flex align="center" gap="middle">
-      <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
+    // minWidth:0 + overflow:hidden:让文本可收缩、超长省略,避免窄屏整行撑出页面宽度。
+    <Flex align="center" gap="middle" style={{ minWidth: 0, overflow: 'hidden' }}>
+      {/* 文本单行省略(ellipsis),空间不足时从尾部截断;essentials(章数/字数)在前。 */}
+      <Typography.Text type="secondary" ellipsis style={{ flex: '0 1 auto', minWidth: 0 }}>
         共 {chapters.length} 章 / 总字数 {fmt(total)} 字
         {readTime ? ` · ${readTime}` : ''}
         {active ? ` · 当前：${active.title}（${fmt(active.wordCount)} 字）` : ''}
@@ -46,7 +48,7 @@ export function StatusBar() {
         percent={percent}
         size="small"
         showInfo={false}
-        style={{ flex: 1, minWidth: 80, marginBottom: 0 }}
+        style={{ flex: '1 1 80px', minWidth: 60, marginBottom: 0 }}
       />
     </Flex>
   )
