@@ -365,7 +365,8 @@ export class BrowserBackend implements Backend {
   async tidy(options: TidyOptions): Promise<{ changed: number }> {
     if (this.single) {
       const whole = this.single.whole()
-      const next = tidyText(whole, options)
+      const ext = this.fileName.toLowerCase().endsWith('.txt') ? 'txt' : 'md'
+      const next = tidyText(whole, options, ext)
       if (next === whole) return { changed: 0 }
       await this.commitSingle(next) // 写回 + 重建 + 广播
       return { changed: 1 }
@@ -373,7 +374,8 @@ export class BrowserBackend implements Backend {
     const handle = this.requireDir()
     let changed = 0
     for (const e of this.entries) {
-      const next = tidyText(e.content, options)
+      const ext = e.path.toLowerCase().endsWith('.txt') ? 'txt' : 'md'
+      const next = tidyText(e.content, options, ext)
       if (next === e.content) continue
       const mtime = await writeFileAt(handle, e.path, next)
       e.content = next; e.mtime = mtime

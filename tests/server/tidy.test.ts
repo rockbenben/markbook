@@ -17,6 +17,13 @@ describe('tidyText — 单项操作', () => {
   it('去分隔条(纯符号横幅),保留纯句子标点行', () => {
     expect(tidyText('正文一\n====\n……\n正文二', { stripSeparators: true })).toBe('正文一\n……\n正文二')
   })
+  it('md:stripSeparators 不破坏 markdown 结构(``` 围栏 / --- frontmatter·hr)', () => {
+    const md = '---\ntitle: T\n---\n\n```js\ncode\n```\n\n---\n\n正文'
+    expect(tidyText(md, { stripSeparators: true }, 'md')).toBe(md)
+  })
+  it('txt:stripSeparators 照常去分隔条', () => {
+    expect(tidyText('正文\n====\n更多', { stripSeparators: true }, 'txt')).toBe('正文\n更多')
+  })
   it('压缩多余空行(3+ → 2)', () => {
     expect(tidyText('a\n\n\n\nb', { compressBlankLines: true })).toBe('a\n\nb')
   })

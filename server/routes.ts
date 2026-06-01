@@ -259,7 +259,8 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     if (store.isSingleFile()) {
       const root = cfg.root
       const whole = await readFile(root, 'utf8')
-      const next = tidyText(whole, options)
+      const ext = root.toLowerCase().endsWith('.txt') ? 'txt' : 'md'
+      const next = tidyText(whole, options, ext)
       if (next === whole) return { changed: 0 }
       guard.mark(root, now())
       await writeFile(root, next, 'utf8')
@@ -278,7 +279,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
       if (!abs) continue
       try {
         const fresh = await readRaw(abs)
-        const next = tidyText(fresh.content, options)
+        const next = tidyText(fresh.content, options, c.ext)
         if (next === fresh.content) continue
         guard.mark(abs, now())
         await store.saveChapter(c.id, next, fresh.mtime)

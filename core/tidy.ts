@@ -1,6 +1,7 @@
 // 「整理文本」纯引擎(同构,服务端/浏览器共用):规则借鉴 novel-processor,但只取**安全、可逆性强、
 // 不易误伤好文本**的几项,逐项可开关。本模块只做 text→text 转换,不碰文件;写回由上层在用户确认后进行。
 import { isSeparatorBar } from './render'
+import type { ChapterExt } from '../shared/types'
 
 export interface TidyOptions {
   stripGarbage?: boolean // 去乱码:私用区(PUA U+E000–F8FF)与替换符 U+FFFD
@@ -41,16 +42,19 @@ function dedupeAdjacent(lines: string[]): string[] {
   return out
 }
 
-export function tidyText(text: string, opts: TidyOptions): string {
+export function tidyText(text: string, opts: TidyOptions, ext?: ChapterExt): string {
+  // md 里 ```/~~~ 围栏、--- frontmatter·分隔线、=== Setext 等都是「纯符号行」却有结构意义,
+  // 故 stripSeparators 只对 txt 生效,避免破坏 markdown。
+  const stripSeparators = !!opts.stripSeparators && ext !== 'md'
   let s = text.replace(/\r\n?/g, '\n') // 统一换行符
   // 字符级
   if (opts.stripGarbage) s = s.replace(GARBAGE_RE, '')
   if (opts.stripArtifacts) s = stripArtifacts(s)
   if (opts.halfWidth) s = toHalfWidth(s)
   // 行级
-  if (opts.dedupeAdjacentLines || opts.stripSeparators || opts.removeLineEndNumbers) {
+  if (opts.dedupeAdjacentLines || stripSeparators || opts.removeLineEndNumbers) {
     let lines = s.split('\n')
-    if (opts.stripSeparators) lines = lines.filter((l) => !isSeparatorBar(l))
+    if (stripSeparators) lines = lines.filter((l) => !isSeparatorBar(l))
     if (opts.removeLineEndNumbers) lines = lines.map((l) => (l.length >= 10 ? l.replace(/\d+$/, '') : l))
     if (opts.dedupeAdjacentLines) lines = dedupeAdjacent(lines)
     s = lines.join('\n')

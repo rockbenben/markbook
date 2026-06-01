@@ -28,9 +28,10 @@ export function TidyModal() {
 
   const activeId = useStore((s) => s.activeChapterId)
   const entry = useStore((s) => (s.activeChapterId ? s.contentById[s.activeChapterId] : undefined))
+  const activeExt = useStore((s) => s.chapters.find((c) => c.id === s.activeChapterId)?.ext)
 
   const checked = useMemo(() => OPTS.filter((o) => opts[o.key]).map((o) => o.key), [opts])
-  const after = useMemo(() => (entry ? tidyText(entry.text, opts) : ''), [entry, opts])
+  const after = useMemo(() => (entry ? tidyText(entry.text, opts, activeExt) : ''), [entry, opts, activeExt])
   const changed = entry ? after !== entry.text : false
 
   async function applyCurrent() {
