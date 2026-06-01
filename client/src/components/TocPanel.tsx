@@ -161,12 +161,52 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
     setOpenKeys((prev) => Array.from(new Set([...prev, ...volKeys])))
   }, [filter, items])
 
-  // 阅读滚动时,让 TOC 自动滚动到当前章节,保持高亮项可见。
+  // 「强势定位」vs「温和跟随」:相邻步进(scroll-spy 阅读)用 nearest 不打扰用户;其余
+  // (冷启动 / 恢复 / TOC 跳转 / 跨多章)用 center 强势居中。判定基于 activeId 在章节列表
+  // 中的位移,且只在 activeId 真正变化时更新——避免被 openKeys / 过滤引发的重跑误判。
+  const chaptersRef = useRef(chapters)
+  chaptersRef.current = chapters
+  const prevActiveRef = useRef<string | null>(null)
+  const blockRef = useRef<ScrollLogicalPosition>('center')
+  const STEP_TOLERANCE = 2 // 容忍 scroll-spy 偶发跳格,仍视为「跟随」
   useEffect(() => {
     if (!activeId) return
-    const el = ref.current?.querySelector<HTMLElement>('.ant-menu-item-selected')
-    // jsdom 等环境可能未实现 scrollIntoView,做存在性保护
-    if (typeof el?.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+    const prev = prevActiveRef.current
+    if (prev && prev !== activeId) {
+      const list = chaptersRef.current
+      const i = list.findIndex((c) => c.id === activeId)
+      const j = list.findIndex((c) => c.id === prev)
+      blockRef.current = i >= 0 && j >= 0 && Math.abs(i - j) <= STEP_TOLERANCE ? 'nearest' : 'center'
+    } else {
+      blockRef.current = 'center' // 冷启动:首次定位强势居中
+    }
+    prevActiveRef.current = activeId
+  }, [activeId])
+
+  // 把当前章高亮项滚入视口。两个坑都要绕:
+  // (1)首次展开某卷时,antd 的 inline 子菜单子项要晚一帧才挂载(由 CSSMotion 内部状态驱动,
+  //     不随我们的 openKeys 变化同步出现),故不能只在 effect 同步查一次——查不到就永远漏掉;
+  // (2)即便挂载了,展开动画期间高度未定,几何不准(已用 Menu 的 motion 关掉动画规避)。
+  // 用 MutationObserver 等高亮项真正出现/换位后再滚,并立即试一次(卷已展开的相邻步进即时命中)。
+  useEffect(() => {
+    if (!activeId) return
+    const root = ref.current
+    if (!root) return
+    let done = false
+    const tryScroll = () => {
+      if (done) return
+      const el = root.querySelector<HTMLElement>('.ant-menu-item-selected')
+      // jsdom 等环境可能未实现 scrollIntoView,做存在性保护
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: blockRef.current })
+        done = true
+        mo.disconnect()
+      }
+    }
+    const mo = new MutationObserver(tryScroll)
+    mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
+    tryScroll()
+    return () => { done = true; mo.disconnect() }
   }, [activeId, openKeys])
 
   return (
@@ -191,6 +231,10 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
       </div>
       <Menu
         mode="inline"
+        // 关掉 inline 子菜单展开/收起动画:展开变为同步布局,使下方「滚动当前章入视口」
+        // 在卷展开后读到的几何即时准确(否则动画期间高度为 0 / display:none,定位落点会错,
+        // 多卷时尤甚)。TOC 展开也更跟手。
+        motion={{ motionName: '' }}
         items={items}
         selectedKeys={activeId ? [activeId] : []}
         openKeys={openKeys}
