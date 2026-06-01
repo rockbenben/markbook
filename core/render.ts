@@ -89,6 +89,18 @@ export function cleanBody(content: string, title: string, ext: ChapterExt): stri
   return stripLeadingTitle(body, title, ext)
 }
 
+/** 取 md frontmatter 的标签:`tags`(数组 / 逗号串)或 `tag`(单个);规范为去重前的字符串数组。 */
+export function frontmatterTags(content: string): string[] {
+  const { data } = extractFrontmatter(content)
+  const raw = data.tags ?? data.tag
+  const list = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string'
+      ? raw.split(/[,，]/)
+      : []
+  return list.map((t) => String(t).trim()).filter(Boolean)
+}
+
 const HEADING_LINE_RE = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/
 const FENCE_LINE_RE = /^\s{0,3}(?:`{3,}|~{3,})/
 

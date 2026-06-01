@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import { Button, Typography } from 'antd'
+import { Button, Tag, Typography } from 'antd'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
@@ -7,7 +7,7 @@ import rehypeAutolink from 'rehype-autolink-headings'
 import rehypeHighlight from 'rehype-highlight'
 import type { PluggableList } from 'unified'
 import type { Chapter, ChapterExt } from '../../../shared/types'
-import { cleanBody, toParagraphs, isLargeText, paginate, PAGE_CHARS } from '../../../core/render'
+import { cleanBody, toParagraphs, isLargeText, paginate, PAGE_CHARS, frontmatterTags } from '../../../core/render'
 import type { ViewMode } from '../store'
 
 const REMARK_PLUGINS = [remarkGfm]
@@ -64,12 +64,19 @@ function renderBody(chapter: Chapter, content: string) {
 }
 
 function ChapterBlockImpl({ chapter, view, content }: Props) {
+  // md frontmatter 标签(随章节元数据显示在标题下)。
+  const tags = chapter.ext === 'md' && content !== undefined ? frontmatterTags(content) : []
   return (
     <section className="chapter" data-chapter-id={chapter.id}>
       <header>
         <Typography.Title level={3} className="chapter-title" style={{ margin: 0 }}>
           {chapter.title}
         </Typography.Title>
+        {tags.length > 0 ? (
+          <div className="chapter-tags">
+            {tags.map((t) => <Tag key={t} bordered={false}>{t}</Tag>)}
+          </div>
+        ) : null}
       </header>
       {content === undefined ? (
         <p style={{ color: 'var(--muted)' }}>加载中…</p>

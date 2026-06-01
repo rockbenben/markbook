@@ -25,6 +25,13 @@ describe('ChapterBlock', () => {
     expect(container.querySelector('code.hljs')).toBeTruthy()
     expect(container.querySelector('.hljs-keyword')).toBeTruthy() // const 被识别为关键字
   })
+  it('md frontmatter tags 渲染为标签', () => {
+    render(<ChapterBlock chapter={ch} view="render" content={'---\ntags: [小说, 测试]\n---\n# 标题\n正文文本'} />)
+    expect(screen.getByText('小说')).toBeTruthy()
+    expect(screen.getByText('测试')).toBeTruthy()
+    expect(screen.getByText('正文文本')).toBeTruthy()
+    expect(screen.queryByText(/tags:/)).toBeNull() // frontmatter 仍不作为正文
+  })
   it('渲染模式隐藏 frontmatter,不当作正文显示', () => {
     render(<ChapterBlock chapter={ch} view="render" content={'---\ntitle: 真名\n---\n# 标题\n正文文本'} />)
     expect(screen.getByText('正文文本')).toBeTruthy()

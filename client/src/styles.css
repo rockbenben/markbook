@@ -35,6 +35,8 @@ body { margin: 0; }
   margin: 0 auto;
 }
 .chapter h2.chapter-title { color: var(--accent); }
+/* frontmatter 标签:标题下一行,缩进归零。 */
+.chapter-tags { margin: 6px 0 0; text-indent: 0; }
 /* 中文小说排版:首行缩进(可切换)+ 段间距。 */
 .chapter p { text-indent: var(--reading-indent, 2em); margin: 0 0 0.8em; }
 /* 图片不溢出阅读栏:等比缩放到容器宽度内。 */

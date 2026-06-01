@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stripLeadingTitle, toParagraphs, isLargeText, LARGE_TXT_CHARS, paginate, cleanBody, extractHeadings } from '../../core/render'
+import { stripLeadingTitle, toParagraphs, isLargeText, LARGE_TXT_CHARS, paginate, cleanBody, extractHeadings, frontmatterTags } from '../../core/render'
 
 describe('stripLeadingTitle', () => {
   it('md:去掉与标题相同的首个 # 标题行', () => {
@@ -77,6 +77,21 @@ describe('cleanBody', () => {
   })
   it('无 frontmatter / 标题不同名时保留正文', () => {
     expect(cleanBody('# 别名\n正文', '标题', 'md')).toBe('# 别名\n正文')
+  })
+})
+
+describe('frontmatterTags', () => {
+  it('YAML 数组 tags', () => {
+    expect(frontmatterTags('---\ntags: [小说, 测试]\n---\n正文')).toEqual(['小说', '测试'])
+  })
+  it('逗号 / 中文逗号字符串 tags', () => {
+    expect(frontmatterTags('---\ntags: 读书，笔记, 摘抄\n---\n正文')).toEqual(['读书', '笔记', '摘抄'])
+  })
+  it('单数 tag(字段名 tag)', () => {
+    expect(frontmatterTags('---\ntag: 随笔\n---\n正文')).toEqual(['随笔'])
+  })
+  it('无 frontmatter / 无 tags → 空', () => {
+    expect(frontmatterTags('# 标题\n正文')).toEqual([])
   })
 })
 
