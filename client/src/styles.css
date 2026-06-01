@@ -47,6 +47,14 @@ body { margin: 0; }
   margin: 16px 0 4px; color: var(--muted); font-size: 13px; text-indent: 0;
 }
 
+/* 顶栏「更多」溢出菜单:把里面的各动作按钮排成左对齐、无边框的菜单项。 */
+.cv-more { display: flex; flex-direction: column; min-width: 172px; gap: 2px; }
+.cv-more .ant-btn {
+  width: 100%; justify-content: flex-start; border: none; box-shadow: none;
+  padding-inline: 8px; font-weight: normal;
+}
+.cv-more .ant-btn:not(:disabled):hover { background: var(--active); }
+
 /* 章内大纲:右上角浮动面板,仅当前 md 章有 ≥2 个子标题时显示;窄屏隐藏。 */
 .chapter-outline {
   position: fixed; top: 84px; right: 16px; z-index: 5;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Empty, List, Popover, Tag, Typography } from 'antd'
-import { HistoryOutlined, FolderOutlined, FileTextOutlined, CloseOutlined } from '@ant-design/icons'
+import { ClockCircleOutlined, FolderOutlined, FileTextOutlined, CloseOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import { useStore } from '../store'
 
@@ -84,7 +84,7 @@ export function RecentMenu() {
       open={open}
       onOpenChange={(v) => { setOpen(v); if (v) refresh() }}
     >
-      <Button icon={<HistoryOutlined />} aria-label="最近打开" title="最近打开" />
+      <Button icon={<ClockCircleOutlined />} aria-label="最近打开" title="最近打开" />
     </Popover>
   )
 }

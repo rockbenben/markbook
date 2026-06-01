@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Button, Empty, Flex, List, Popover, Segmented, Space, Tooltip, Typography } from 'antd'
+import { Button, Divider, Empty, Flex, List, Popover, Segmented, Space, Tooltip, Typography } from 'antd'
 import {
-  BookOutlined, BulbOutlined, CloseOutlined, FullscreenOutlined, GithubOutlined, LeftOutlined,
+  BookOutlined, BulbOutlined, CloseOutlined, EllipsisOutlined, FullscreenOutlined, GithubOutlined, LeftOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ReloadOutlined, RightOutlined,
-  SettingOutlined, StarFilled, StarOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
 import { useStore, type ViewMode } from '../store'
 import { api } from '../api'
@@ -71,6 +71,25 @@ const VIEW_OPTIONS: { label: string; value: ViewMode }[] = [
   { label: '原文', value: 'source' },
 ]
 
+/** 顶栏「更多」溢出菜单:收纳低频的编辑 / 导出动作(查找替换、整理、导出)。 */
+const hasMoreActions = api.canEdit || api.canExport
+function MoreMenu() {
+  const content = (
+    <div className="cv-more">
+      {api.canEdit ? <ReplaceModal /> : null}
+      {api.canEdit && api.tidy ? <TidyModal /> : null}
+      {api.canExport ? <ExportModal /> : null}
+    </div>
+  )
+  return (
+    <Popover content={content} trigger="click" placement="bottomRight">
+      <Tooltip title="更多">
+        <Button icon={<EllipsisOutlined />} aria-label="更多" />
+      </Tooltip>
+    </Popover>
+  )
+}
+
 interface ToolbarProps {
   tocCollapsed: boolean
   onToggleToc: () => void
@@ -85,9 +104,6 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
   const setChapters = useStore((s) => s.setChapters)
   const refreshContent = useStore((s) => s.refreshContent)
   const toggleImmersive = useStore((s) => s.toggleImmersive)
-  const activeId = useStore((s) => s.activeChapterId)
-  const bookmarks = useStore((s) => s.bookmarks)
-  const toggleBookmark = useStore((s) => s.toggleBookmark)
   const { hasPrev, hasNext, goPrev, goNext } = useChapterNav()
   const [settingsOpen, setSettingsOpen] = useState(false)
   // 空库等场景可通过派发 cv:open-settings 远程打开设置面板(复用同一开关)。
@@ -96,7 +112,6 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
     window.addEventListener('cv:open-settings', open)
     return () => window.removeEventListener('cv:open-settings', open)
   }, [])
-  const activeBookmarked = !!activeId && bookmarks.includes(activeId)
   // 非「默认」背景下,明暗由阅读背景决定(见 App 的 isDark 逻辑),手动主题切换无效:禁用并说明。
   const themeLocked = paper !== 'default'
 
@@ -116,21 +131,9 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
       >
         MarkBook · 文集
       </Typography.Text>
-      <Segmented<ViewMode>
-        options={VIEW_OPTIONS}
-        value={globalView}
-        onChange={setGlobalView}
-      />
-      <Button
-        icon={<ReloadOutlined />}
-        // 静态模式:先重新读盘(目录重扫 / 单文件重读)再刷新;服务端模式 reload 不存在,直接重取。
-        onClick={async () => { refreshContent(); await api.reload?.(); setChapters(await api.chapters()) }}
-      >
-        刷新
-      </Button>
+      {/* 品牌(目录+书名)与「查找·导航」之间用分隔线分组,避免标题紧贴搜索框显得像表单标签。 */}
+      <Divider type="vertical" style={{ margin: 0, height: '1.4em' }} />
       <SearchBox />
-      {api.canEdit ? <ReplaceModal /> : null}
-      {api.canEdit && api.tidy ? <TidyModal /> : null}
       <Space.Compact>
         <Tooltip title="上一章">
           <Button icon={<LeftOutlined />} disabled={!hasPrev} onClick={goPrev} aria-label="上一章" />
@@ -140,23 +143,36 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
         </Tooltip>
       </Space.Compact>
       <span style={{ flex: 1 }} />
-      <Space>
-        <Tooltip title={activeBookmarked ? '取消书签' : '为当前章加书签'}>
-          <Button
-            icon={activeBookmarked ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
-            disabled={!activeId}
-            onClick={() => { if (activeId) toggleBookmark(activeId) }}
-            aria-label={activeBookmarked ? '取消书签' : '为当前章加书签'}
-          />
-        </Tooltip>
-        <BookmarksMenu />
+      {/* 右侧三区:显示 · 书库/位置 · 工具·应用,各区间细分隔线。全部图标/分段 + tooltip,保持一致。 */}
+      <Space size={4}>
+        {/* 显示:视图 / 字体背景 / 沉浸 */}
+        <Segmented<ViewMode> options={VIEW_OPTIONS} value={globalView} onChange={setGlobalView} />
+        <ReadingSettings />
         <Tooltip title="沉浸阅读">
           <Button icon={<FullscreenOutlined />} onClick={toggleImmersive} aria-label="沉浸阅读" />
         </Tooltip>
-        {api.canExport ? <ExportModal /> : null}
-        <ReadingSettings />
+
+        <Divider type="vertical" style={{ margin: '0 2px' }} />
+
+        {/* 书库 / 位置:最近来源 / 书签 / 刷新 */}
         <RecentMenu />
-        <Button icon={<SettingOutlined />} onClick={() => setSettingsOpen((v) => !v)}>设置</Button>
+        <BookmarksMenu />
+        <Tooltip title="刷新">
+          <Button
+            icon={<ReloadOutlined />}
+            aria-label="刷新"
+            // 静态模式:先重新读盘(目录重扫 / 单文件重读)再刷新;服务端模式 reload 不存在,直接重取。
+            onClick={async () => { refreshContent(); await api.reload?.(); setChapters(await api.chapters()) }}
+          />
+        </Tooltip>
+
+        <Divider type="vertical" style={{ margin: '0 2px' }} />
+
+        {/* 工具 · 应用:更多(查找替换/整理/导出) / 设置 / GitHub */}
+        {hasMoreActions ? <MoreMenu /> : null}
+        <Tooltip title="设置">
+          <Button icon={<SettingOutlined />} onClick={() => setSettingsOpen((v) => !v)} aria-label="设置" />
+        </Tooltip>
         {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
         <Tooltip title={themeLocked ? '明暗由阅读背景决定，选择「默认」背景可手动切换' : theme === 'light' ? '切换暗色' : '切换亮色'}>
           {/* 禁用的 Button 有 pointer-events:none,不会触发 hover;用 span 包裹让 Tooltip 仍能显示。 */}

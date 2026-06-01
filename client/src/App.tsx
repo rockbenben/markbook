@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { App as AntdApp, ConfigProvider, Drawer, FloatButton, Layout, Spin, theme as antdTheme } from 'antd'
-import { EditOutlined, FullscreenExitOutlined } from '@ant-design/icons'
+import { EditOutlined, FullscreenExitOutlined, StarFilled, StarOutlined } from '@ant-design/icons'
 import { useStore } from './store'
 import { api } from './api'
 import { useChapterNav } from './useChapterNav'
@@ -39,6 +39,8 @@ export default function App() {
   const activeId = useStore((s) => s.activeChapterId)
   const editingId = useStore((s) => s.editingId)
   const startEditing = useStore((s) => s.startEditing)
+  const bookmarks = useStore((s) => s.bookmarks)
+  const toggleBookmark = useStore((s) => s.toggleBookmark)
   const setChapters = useStore((s) => s.setChapters)
   const setWsStatus = useStore((s) => s.setWsStatus)
   const apply = useStore((s) => s.apply)
@@ -231,6 +233,16 @@ export default function App() {
                否则 top+bottom 同时生效会把浮钮纵向拉伸成一长条。 */
             style={{ right: 24, top: 24, bottom: 'auto' }}
             onClick={toggleImmersive}
+          />
+        ) : null}
+        {/* 当前章操作浮钮:书签(只读也可用)叠在编辑铅笔之上,二者都作用于「当前章」。 */}
+        {!immersive && !editingId && activeId ? (
+          <FloatButton
+            icon={bookmarks.includes(activeId) ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+            tooltip={bookmarks.includes(activeId) ? '取消书签' : '为当前章加书签'}
+            // 可编辑时编辑铅笔在底(默认 48),书签叠其上;只读时书签独占底位。
+            style={{ right: 24, insetBlockEnd: api.canEdit ? 104 : 48 }}
+            onClick={() => toggleBookmark(activeId)}
           />
         ) : null}
         {!immersive && !editingId && activeId && api.canEdit ? (
