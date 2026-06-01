@@ -15,6 +15,7 @@ import { loadBrowserConfig, saveBrowserConfig } from './browserConfig'
 import { loadRecents, saveRecent, removeRecent, saveUploadSnapshot, loadUploadSnapshot, clearUploadSnapshot } from './idbHandle'
 import { safeBaseName, uniqueName, rewriteHeadingTitle } from '../../../core/naming'
 import { escapeRegExp, countMatches } from '../../../core/regex'
+import { tidyText, type TidyOptions } from '../../../core/tidy'
 
 type RootHandle = DirHandleLike & WritableDirHandleLike
 
@@ -358,6 +359,28 @@ export class BrowserBackend implements Backend {
     }
     this.reloadFolder(); this.broadcast()
     return { replaced, total }
+  }
+
+  /** 整理:单文件整文件清洗一次;目录逐文件清洗,只写回有改动者。返回改动文件数。 */
+  async tidy(options: TidyOptions): Promise<{ changed: number }> {
+    if (this.single) {
+      const whole = this.single.whole()
+      const next = tidyText(whole, options)
+      if (next === whole) return { changed: 0 }
+      await this.commitSingle(next) // 写回 + 重建 + 广播
+      return { changed: 1 }
+    }
+    const handle = this.requireDir()
+    let changed = 0
+    for (const e of this.entries) {
+      const next = tidyText(e.content, options)
+      if (next === e.content) continue
+      const mtime = await writeFileAt(handle, e.path, next)
+      e.content = next; e.mtime = mtime
+      changed++
+    }
+    if (changed) { this.reloadFolder(); this.broadcast() }
+    return { changed }
   }
 
   async browse(): Promise<BrowseResult> { throw new Error('browse 在静态模式不可用') }

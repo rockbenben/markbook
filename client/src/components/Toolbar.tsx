@@ -10,6 +10,7 @@ import { api } from '../api'
 import { useChapterNav } from '../useChapterNav'
 import { SearchBox } from './SearchBox'
 import { ReplaceModal } from './ReplaceModal'
+import { TidyModal } from './TidyModal'
 import { SettingsPanel } from './SettingsPanel'
 import { ReadingSettings } from './ReadingSettings'
 import { ExportModal } from './ExportModal'
@@ -129,6 +130,7 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
       </Button>
       <SearchBox />
       {api.canEdit ? <ReplaceModal /> : null}
+      {api.canEdit && api.tidy ? <TidyModal /> : null}
       <Space.Compact>
         <Tooltip title="上一章">
           <Button icon={<LeftOutlined />} disabled={!hasPrev} onClick={goPrev} aria-label="上一章" />

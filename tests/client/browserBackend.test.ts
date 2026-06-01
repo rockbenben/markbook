@@ -102,6 +102,21 @@ describe('BrowserBackend editing (folder mode)', () => {
     expect(fs.files.get('b.txt')!.content).toBe('乙内容无标题')
   })
 
+  it('tidy(folder):整理有改动的文件并写回,返回 changed 计数', async () => {
+    localStorage.clear()
+    const seed = [
+      { path: 'a.txt', content: '第１章\n\n\n\n正文', mtime: 1 }, // 全角数字 + 多余空行
+      { path: 'b.txt', content: '干净正文', mtime: 2 },
+    ]
+    const fs = makeFs(Object.fromEntries(seed.map((e) => [e.path, { content: e.content, mtime: e.mtime }])))
+    const be = new BrowserBackend()
+    be.loadEntries(fs.root, seed.map((e): FileEntry => ({ ...e })))
+    const res = await be.tidy!({ halfWidth: true, compressBlankLines: true })
+    expect(res.changed).toBe(1) // 仅 a.txt 改变
+    expect(fs.files.get('a.txt')!.content).toBe('第1章\n\n正文')
+    expect(fs.files.get('b.txt')!.content).toBe('干净正文') // 无改动不写
+  })
+
   it('exportToBlob 生成 txt blob 与文件名', async () => {
     const { be } = setup()
     const out = await be.exportToBlob('txt')

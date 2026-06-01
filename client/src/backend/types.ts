@@ -1,6 +1,7 @@
 // 后端抽象:阅读 UI 只依赖这个接口,不直接耦合 HTTP 或文件系统。
 // 两种实现:ServerBackend(现有 Fastify HTTP + WS)与 BrowserBackend(纯静态,FS Access)。
 import type { Chapter, RawResponse, SearchHit, ReplaceResult, AppConfig, WSMessage } from '../../../shared/types'
+import type { TidyOptions } from '../../../core/tidy'
 import type { WSStatus } from '../wsClient'
 
 export interface BrowseResult {
@@ -35,6 +36,9 @@ export interface Backend {
   getConfig(): Promise<AppConfig>
   setConfig(patch: Partial<AppConfig>): Promise<AppConfig>
   browse(path?: string): Promise<BrowseResult>
+
+  /** 「整理」:对全书逐文件/整文件应用文本清洗并写回。需可编辑;目前仅浏览器(静态)实现。返回改动文件数。 */
+  tidy?(options: TidyOptions): Promise<{ changed: number }>
 
   /** 浏览器模式:弹出系统目录选择器,选定后载入并返回新配置(取消返回 null)。 */
   pickRoot?(): Promise<AppConfig | null>
