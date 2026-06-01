@@ -5,27 +5,39 @@ import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 import rehypeAutolink from 'rehype-autolink-headings'
 import type { Chapter } from '../../../shared/types'
+import { extractFrontmatter } from '../../../core/parse'
+import { stripLeadingTitle, toParagraphs, isLargeText } from '../../../core/render'
 import type { ViewMode } from '../store'
 
 const REMARK_PLUGINS = [remarkGfm]
 const REHYPE_PLUGINS = [rehypeSlug, rehypeAutolink]
 
-/** 渲染时去掉与章节标题重复的首个标题行,避免标题显示两次。 */
-function stripLeadingTitle(md: string, title: string): string {
-  const lines = md.split('\n')
-  let i = 0
-  while (i < lines.length && lines[i].trim() === '') i++
-  const m = lines[i]?.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/)
-  if (m && m[1].trim() === title.trim()) {
-    return lines.slice(i + 1).join('\n').replace(/^\n+/, '')
-  }
-  return md
-}
-
 interface Props {
   chapter: Chapter
   view: ViewMode
   content: string | undefined
+}
+
+/** 排版视图正文:md / txt 共用清洗(剥 frontmatter + 去重复首行标题),只在最后落节点处分叉。 */
+function renderBody(chapter: Chapter, content: string) {
+  const { body } = extractFrontmatter(content)
+  const clean = stripLeadingTitle(body, chapter.title, chapter.ext)
+  if (chapter.ext === 'md') {
+    return (
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
+        {clean}
+      </ReactMarkdown>
+    )
+  }
+  // txt 按正文段落排版;超大单章回退 <pre> 整体渲染,避免成千上万段落塞满 DOM。
+  if (isLargeText(clean)) return <pre className="raw">{clean}</pre>
+  return (
+    <>
+      {toParagraphs(clean).map((p, i) => (
+        <p key={i}>{p}</p>
+      ))}
+    </>
+  )
 }
 
 function ChapterBlockImpl({ chapter, view, content }: Props) {
@@ -38,10 +50,8 @@ function ChapterBlockImpl({ chapter, view, content }: Props) {
       </header>
       {content === undefined ? (
         <p style={{ color: 'var(--muted)' }}>加载中…</p>
-      ) : view === 'render' && chapter.ext === 'md' ? (
-        <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
-          {stripLeadingTitle(content, chapter.title)}
-        </ReactMarkdown>
+      ) : view === 'render' ? (
+        renderBody(chapter, content)
       ) : (
         <pre className="raw">{content}</pre>
       )}
