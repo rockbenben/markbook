@@ -44,6 +44,36 @@ body { margin: 0; }
   display: flex; align-items: center; justify-content: center; gap: 12px;
   margin: 16px 0 4px; color: var(--muted); font-size: 13px; text-indent: 0;
 }
+
+/* 渲染出的代码块与行内代码(react-markdown)。 */
+.chapter pre {
+  background: var(--panel); padding: 12px 14px; border-radius: 6px;
+  overflow-x: auto; text-indent: 0; line-height: 1.5;
+}
+.chapter pre code { background: none; padding: 0; font-size: 0.88em; }
+.chapter :not(pre) > code {
+  background: var(--panel); padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.88em;
+}
+
+/* 代码语法高亮(highlight.js 类名)。配色用变量,随明暗主题切换;GitHub 风格。 */
+:root {
+  --hl-comment: #6a737d; --hl-keyword: #d73a49; --hl-string: #032f62; --hl-number: #005cc5;
+  --hl-title: #6f42c1; --hl-attr: #005cc5; --hl-builtin: #e36209; --hl-meta: #6a737d;
+}
+[data-theme='dark'] {
+  --hl-comment: #8b949e; --hl-keyword: #ff7b72; --hl-string: #a5d6ff; --hl-number: #79c0ff;
+  --hl-title: #d2a8ff; --hl-attr: #79c0ff; --hl-builtin: #ffa657; --hl-meta: #8b949e;
+}
+.hljs-comment, .hljs-quote { color: var(--hl-comment); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-type, .hljs-literal, .hljs-doctag { color: var(--hl-keyword); }
+.hljs-string, .hljs-meta .hljs-string, .hljs-regexp, .hljs-addition { color: var(--hl-string); }
+.hljs-number, .hljs-symbol, .hljs-bullet { color: var(--hl-number); }
+.hljs-title, .hljs-title.class_, .hljs-title.function_, .hljs-section, .hljs-name { color: var(--hl-title); }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-selector-attr { color: var(--hl-attr); }
+.hljs-built_in, .hljs-builtin-name, .hljs-class .hljs-title, .hljs-link { color: var(--hl-builtin); }
+.hljs-meta, .hljs-comment .hljs-doctag { color: var(--hl-meta); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
 pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; background: var(--panel); padding: 12px; border-radius: 6px; }
 
 /* 搜索命中高亮(CSS Custom Highlight API)。半透明黄,明暗背景下都清晰且不夺色。 */

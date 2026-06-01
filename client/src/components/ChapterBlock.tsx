@@ -4,13 +4,16 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 import rehypeAutolink from 'rehype-autolink-headings'
+import rehypeHighlight from 'rehype-highlight'
+import type { PluggableList } from 'unified'
 import type { Chapter, ChapterExt } from '../../../shared/types'
 import { extractFrontmatter } from '../../../core/parse'
 import { stripLeadingTitle, toParagraphs, isLargeText, paginate, PAGE_CHARS } from '../../../core/render'
 import type { ViewMode } from '../store'
 
 const REMARK_PLUGINS = [remarkGfm]
-const REHYPE_PLUGINS = [rehypeSlug, rehypeAutolink]
+// rehypeHighlight 容错:遇未知语言 / 解析异常不抛错,仅跳过该块。
+const REHYPE_PLUGINS: PluggableList = [rehypeSlug, rehypeAutolink, [rehypeHighlight, { ignoreMissing: true }]]
 
 interface Props {
   chapter: Chapter

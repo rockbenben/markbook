@@ -19,6 +19,12 @@ describe('ChapterBlock', () => {
     render(<ChapterBlock chapter={ch} view="source" content={'# 标题\n原始'} />)
     expect(screen.getByText(/# 标题/)).toBeTruthy()
   })
+  it('md 代码块语法高亮(rehype-highlight 注入 hljs token)', () => {
+    const content = '# 标题\n\n```js\nconst x = 1\n```\n'
+    const { container } = render(<ChapterBlock chapter={ch} view="render" content={content} />)
+    expect(container.querySelector('code.hljs')).toBeTruthy()
+    expect(container.querySelector('.hljs-keyword')).toBeTruthy() // const 被识别为关键字
+  })
   it('渲染模式隐藏 frontmatter,不当作正文显示', () => {
     render(<ChapterBlock chapter={ch} view="render" content={'---\ntitle: 真名\n---\n# 标题\n正文文本'} />)
     expect(screen.getByText('正文文本')).toBeTruthy()
