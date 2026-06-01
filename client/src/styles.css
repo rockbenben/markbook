@@ -39,6 +39,11 @@ body { margin: 0; }
 .chapter p { text-indent: var(--reading-indent, 2em); margin: 0 0 0.8em; }
 /* 图片不溢出阅读栏:等比缩放到容器宽度内。 */
 .chapter img, .chapter-editor-preview img { max-width: 100%; height: auto; }
+/* 超大单章的分页器。 */
+.chapter-pager {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin: 16px 0 4px; color: var(--muted); font-size: 13px; text-indent: 0;
+}
 pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; background: var(--panel); padding: 12px; border-radius: 6px; }
 
 /* 搜索命中高亮(CSS Custom Highlight API)。半透明黄,明暗背景下都清晰且不夺色。 */

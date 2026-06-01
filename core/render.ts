@@ -2,9 +2,10 @@
 // 收在 core,ChapterBlock 只负责把结果落成 React 节点;txt 与 md 仅在最后渲染那一步分叉。
 import type { ChapterExt } from '../shared/types'
 
-// txt 单章超过此字符数时,排版视图回退为 <pre> 整体渲染(不逐行拆 <p>),避免几十 MB
-// 无标题大文件把成千上万段落一次性塞进 DOM。正式的章内虚拟化留作后续大文件专项。
+// 单章超过此字符数时改为分页渲染,避免几十 MB 无标题大文件把整章一次性塞进 DOM。
 export const LARGE_TXT_CHARS = 200_000
+// 分页时每页的目标字符数。
+export const PAGE_CHARS = 100_000
 
 const MD_HEADING_LINE_RE = /^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/
 const SETEXT_UNDERLINE_RE = /^\s*(?:={3,}|-{3,})\s*$/
@@ -44,7 +45,28 @@ export function toParagraphs(text: string): string[] {
   return text.split('\n').map((l) => l.trim()).filter((l) => l !== '')
 }
 
-/** 文本是否大到该走 <pre> 回退而非逐行 <p> 排版。 */
+/** 文本是否大到该分页渲染而非整章一次性渲染。 */
 export function isLargeText(text: string): boolean {
   return text.length > LARGE_TXT_CHARS
+}
+
+/**
+ * 把超长正文切成多页,每页约 ≤ pageChars。尽量在行边界断页以不破坏段落;单行本身超过
+ * 页容量时硬切。空行不产生空页。
+ */
+export function paginate(text: string, pageChars: number): string[] {
+  if (text.length <= pageChars) return [text]
+  const pages: string[] = []
+  let cur = ''
+  for (const line of text.split('\n')) {
+    if (line.length >= pageChars) {
+      if (cur) { pages.push(cur); cur = '' }
+      for (let i = 0; i < line.length; i += pageChars) pages.push(line.slice(i, i + pageChars))
+      continue
+    }
+    if (cur && cur.length + line.length + 1 > pageChars) { pages.push(cur); cur = '' }
+    cur = cur ? cur + '\n' + line : line
+  }
+  if (cur) pages.push(cur)
+  return pages
 }

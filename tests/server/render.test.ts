@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stripLeadingTitle, toParagraphs, isLargeText, LARGE_TXT_CHARS } from '../../core/render'
+import { stripLeadingTitle, toParagraphs, isLargeText, LARGE_TXT_CHARS, paginate } from '../../core/render'
 
 describe('stripLeadingTitle', () => {
   it('md:去掉与标题相同的首个 # 标题行', () => {
@@ -37,5 +37,24 @@ describe('isLargeText', () => {
   })
   it('超过阈值算大', () => {
     expect(isLargeText('x'.repeat(LARGE_TXT_CHARS + 1))).toBe(true)
+  })
+})
+
+describe('paginate', () => {
+  it('不超过页容量时单页返回', () => {
+    expect(paginate('abc', 10)).toEqual(['abc'])
+  })
+  it('在行边界分页,每页不超容量,拼回等于原文', () => {
+    const pages = paginate('aaaa\nbbbb\ncccc\ndddd', 10)
+    expect(pages).toEqual(['aaaa\nbbbb', 'cccc\ndddd'])
+    expect(pages.every((p) => p.length <= 10)).toBe(true)
+    expect(pages.join('\n')).toBe('aaaa\nbbbb\ncccc\ndddd')
+  })
+  it('单行超过页容量时硬切', () => {
+    expect(paginate('xxxxxxxxxxxxx', 5)).toEqual(['xxxxx', 'xxxxx', 'xxx'])
+  })
+  it('无空页', () => {
+    const pages = paginate('a\n\n\nb', 2)
+    expect(pages.every((p) => p.length > 0)).toBe(true)
   })
 })

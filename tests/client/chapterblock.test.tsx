@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ChapterBlock } from '../../client/src/components/ChapterBlock'
-import { LARGE_TXT_CHARS } from '../../core/render'
 import type { Chapter } from '../../shared/types'
 
 const ch: Chapter = { id: 'x', path: 'a.md', volume: null, title: '标题', ext: 'md', mtime: 1, wordCount: 3 }
@@ -41,9 +40,17 @@ describe('ChapterBlock', () => {
     const pre = container.querySelector('pre.raw')
     expect(pre?.textContent).toContain('第一章\n正文')
   })
-  it('txt 超大单章渲染模式回退为 <pre> 整体渲染', () => {
-    const big = '第一章\n' + 'x'.repeat(LARGE_TXT_CHARS + 10)
+  it('txt 超大单章分页渲染:只渲染当前页,可翻页', () => {
+    const block = (m: string) => m + 'x'.repeat(90_000)
+    const big = '第一章\n' + [block('MARKONE'), block('MARKTWO'), block('MARKTHREE')].join('\n')
     const { container } = render(<ChapterBlock chapter={txtCh} view="render" content={big} />)
-    expect(container.querySelector('pre')).toBeTruthy()
+    // 分页器存在,首页只含第一段标记
+    expect(container.querySelector('.chapter-pager')).toBeTruthy()
+    expect(container.textContent).toContain('MARKONE')
+    expect(container.textContent).not.toContain('MARKTWO')
+    // 翻到下一页
+    fireEvent.click(screen.getByRole('button', { name: '下一页' }))
+    expect(container.textContent).toContain('MARKTWO')
+    expect(container.textContent).not.toContain('MARKONE')
   })
 })
