@@ -131,20 +131,26 @@ const NOVEL_CHAPTER_RES = CHAPTER_RES.filter(
   re => re.source !== GUARDED_CHAPTER_RES[0].source,
 )
 
+// 行首可选的 markdown ATX 前缀(# ~ ###### + 空白)。txt 把它当装饰剥掉,改由中文/编号语义
+// 决定层级——小说常用 `# 第N篇` 标卷却又用「第X章\n===」标章,#/=== 都只是排版噪声。
+const ATX_PREFIX_RE = /^[ \t]{0,3}#{1,6}[ \t]+/
+
 function matchTxtHeading(line: string): { title: string; level: number } | null {
-  const title = line.trim()
+  // 先剥行首 ATX 前缀,后续识别与标题文本都基于剥离后的 s。
+  const s = line.replace(ATX_PREFIX_RE, '')
+  const title = s.trim()
   if (title === '') return null
   // 特殊独立章:剥离环绕括号/空白后精确匹配。
   const bare = title.replace(STRIP_RE, '')
   if (SPECIAL_TITLES.has(bare)) return { title, level: 2 }
-  for (const re of VOLUME_RES) if (re.test(line) && passesNovelHeadingGuard(line)) return { title, level: 1 }
-  for (const re of NOVEL_CHAPTER_RES) if (re.test(line) && passesNovelHeadingGuard(line)) return { title, level: 2 }
+  for (const re of VOLUME_RES) if (re.test(s) && passesNovelHeadingGuard(s)) return { title, level: 1 }
+  for (const re of NOVEL_CHAPTER_RES) if (re.test(s) && passesNovelHeadingGuard(s)) return { title, level: 2 }
   // 数字编号章级:必须通过安全护栏(短、独立、无句子标点)。
-  if (passesHeadingGuard(line)) {
-    for (const re of GUARDED_CHAPTER_RES) if (re.test(line)) return { title, level: 2 }
+  if (passesHeadingGuard(s)) {
+    for (const re of GUARDED_CHAPTER_RES) if (re.test(s)) return { title, level: 2 }
   }
   // 通用文档编号 / 枚举标题(内部已含护栏)。
-  const g = matchGeneralHeading(line)
+  const g = matchGeneralHeading(s)
   if (g) return g
   return null
 }
@@ -216,7 +222,23 @@ export function splitFileIntoSections(
       continue
     }
     const selfIsUnderline = SETEXT_EQ_RE.test(line) || SETEXT_DASH_RE.test(line)
-    // Setext(仅 txt 检测路径,含 md 无 # 回退):非空文本行 + 下一行全 = / -。
+    // 1) 语义标题优先(中文/编号/英文 章卷;txt 还会剥掉行首 # 装饰)。语义标记比 Setext
+    //    下划线更可靠:`第X章\n===` 应按「第X章」判为章级,而非被 === 压成 level 1。
+    const h = matchHeading(line, effExt)
+    if (h) {
+      headings.push({ title: h.title, level: h.level, lineStart: lineOffsets[i] })
+      // 紧跟的 Setext 下划线属该标题的装饰,消费掉(不另算悬空/标题);正文里残留的下划线
+      // 行由渲染层 stripLeadingTitle 清除。
+      if (
+        effExt === 'txt' && !selfIsUnderline && i + 1 < lines.length &&
+        (SETEXT_EQ_RE.test(lines[i + 1]) || SETEXT_DASH_RE.test(lines[i + 1]))
+      ) {
+        i++
+      }
+      prevWasDanglingUnderline = false
+      continue
+    }
+    // 2) Setext 回退(本行不是语义标题时):非空文本行 + 下一行全 = / -。
     if (effExt === 'txt' && i + 1 < lines.length) {
       const next = lines[i + 1]
       const isEq = SETEXT_EQ_RE.test(next)
@@ -234,8 +256,6 @@ export function splitFileIntoSections(
         continue
       }
     }
-    const h = matchHeading(line, effExt)
-    if (h) headings.push({ title: h.title, level: h.level, lineStart: lineOffsets[i] })
     // 本行是未被消费的下划线 → 记为悬空。
     prevWasDanglingUnderline = selfIsUnderline
   }

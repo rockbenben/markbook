@@ -216,6 +216,45 @@ describe('splitFileIntoSections — Setext underline headings', () => {
   })
 })
 
+describe('splitFileIntoSections — # 篇(markdown 装饰)+ Setext=== 的 第X章(混合标记)', () => {
+  // 复刻《宇宙职业选手》形态:篇用 markdown `# 第N篇`,章用「第X章\n=====」Setext,
+  // 章号每篇重启。期望:篇=卷级、章=章级并归入对应篇,而非全部塌成 level 1。
+  const txt = [
+    '# 第一篇 风起云涌',
+    '',
+    '第一章 甲',
+    '=====',
+    '正文甲',
+    '第二章 乙',
+    '=====',
+    '正文乙',
+    '# 第二篇 续',
+    '',
+    '第一章 丙',
+    '=====',
+    '正文丙',
+  ].join('\n')
+
+  it('# 篇 认作卷,Setext=== 的 第X章 认作章并归入对应篇', () => {
+    const secs = splitFileIntoSections(txt, 'txt')
+    expect(secs.map(s => s.title)).toEqual(['第一章 甲', '第二章 乙', '第一章 丙'])
+    expect(secs.map(s => s.volume)).toEqual(['第一篇 风起云涌', '第一篇 风起云涌', '第二篇 续'])
+  })
+
+  it('章为 level 2(语义优先于 Setext 的 ===),offsets 可重建', () => {
+    const secs = splitFileIntoSections(txt, 'txt')
+    expect(secs.every(s => s.level === 2)).toBe(true)
+    for (const s of secs) expect(txt.slice(s.start, s.end)).toBe(s.content)
+  })
+
+  it('行首 # 装饰被忽略:# 第一卷 单独也认作卷级语义', () => {
+    const t = '# 第一卷 起\n第一章 甲\n正文甲\n第二章 乙\n正文乙\n'
+    const secs = splitFileIntoSections(t, 'txt')
+    expect(secs.map(s => s.title)).toEqual(['第一章 甲', '第二章 乙'])
+    expect(secs.map(s => s.volume)).toEqual(['第一卷 起', '第一卷 起'])
+  })
+})
+
 describe('splitFileIntoSections — decimal dotted headings', () => {
   it('1/2/2.1/3 → sections; 2.1 nested under 2', () => {
     const txt = '1 概述\n概述正文\n2 安装\n安装正文\n2.1 步骤\n步骤正文\n3 配置\n配置正文\n'
