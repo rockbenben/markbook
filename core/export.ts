@@ -8,6 +8,8 @@ import remarkRehype from 'remark-rehype'
 import rehypeSlug from 'rehype-slug'
 import rehypeStringify from 'rehype-stringify'
 import type { Chapter } from '../shared/types'
+import { extractFrontmatter } from './parse'
+import { stripLeadingTitle } from './render'
 
 export interface ExportResult {
   buffer: Buffer | string
@@ -60,14 +62,18 @@ function stripMarkdown(md: string): string {
 }
 
 export async function buildTxt(chapters: Chapter[], getContent: ContentGetter): Promise<ExportResult> {
+  // 与阅读一致:剥 frontmatter + 去重首行标题(含 txt 的 Setext 下划线);md 正文剥 markdown
+  // 标记,txt 正文按字面保留。卷变化时在该卷首章前输出卷名。标题统一前置一次,不重复。
   const parts: string[] = []
+  let lastVolume: string | null | undefined
   for (const c of chapters) {
-    const content = stripMarkdown(await getContent(c.id)).trim()
-    // 正文已以同名标题行开头时不再前置标题:md 章节标题多源自其首个 `#` 标题,
-    // stripMarkdown 后该行变为与 c.title 同名的纯文本,直接前置会让标题重复两次。
-    const nl = content.indexOf('\n')
-    const firstLine = (nl === -1 ? content : content.slice(0, nl)).trim()
-    parts.push(firstLine === c.title ? content : `${c.title}\n\n${content}`)
+    const { body } = extractFrontmatter(await getContent(c.id))
+    const stripped = stripLeadingTitle(body, c.title, c.ext)
+    const text = (c.ext === 'md' ? stripMarkdown(stripped) : stripped).trim()
+    let block = text ? `${c.title}\n\n${text}` : c.title
+    if (c.volume && c.volume !== lastVolume) block = `${c.volume}\n\n${block}`
+    lastVolume = c.volume
+    parts.push(block)
   }
   return { buffer: parts.join('\n\n\n'), mime: 'text/plain; charset=utf-8', ext: 'txt' }
 }
@@ -77,10 +83,16 @@ export async function buildMarkdown(
   getContent: ContentGetter,
   title?: string,
 ): Promise<ExportResult> {
+  // 章节正文保留 markdown(含 txt 源章的 Setext 标题,本就是合法 md);仅剥 frontmatter,
+  // 避免每章 `---` 元数据夹在文中。卷变化时插入 `# 卷名` 分组。
   const parts: string[] = []
   if (title) parts.push(`# ${title}`)
+  let lastVolume: string | null | undefined
   for (const c of chapters) {
-    parts.push((await getContent(c.id)).trim())
+    const { body } = extractFrontmatter(await getContent(c.id))
+    if (c.volume && c.volume !== lastVolume) parts.push(`# ${c.volume}`)
+    lastVolume = c.volume
+    parts.push(body.trim())
   }
   return { buffer: parts.join('\n\n'), mime: 'text/markdown; charset=utf-8', ext: 'md' }
 }

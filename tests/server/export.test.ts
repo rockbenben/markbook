@@ -125,6 +125,35 @@ describe('buildTxt / stripMarkdown', () => {
   })
 })
 
+describe('buildTxt — 与阅读逻辑对齐(frontmatter / Setext / 卷 / txt 不剥 md)', () => {
+  it('剥离 frontmatter,不把元数据当正文导出', async () => {
+    const res = await buildTxt([ch('a', '章')], getter({ a: '---\ntitle: T\nauthor: X\n---\n正文' }))
+    const out = String(res.buffer)
+    expect(out).toBe('章\n\n正文')
+    expect(out).not.toContain('title: T')
+  })
+
+  it('txt 章节:剥掉标题后的 Setext 下划线,不泄漏 ===', async () => {
+    const c: Chapter = { ...ch('a', '第一章 甲'), ext: 'txt', path: 'a.txt' }
+    const res = await buildTxt([c], getter({ a: '第一章 甲\n=====\n正文甲' }))
+    expect(String(res.buffer)).toBe('第一章 甲\n\n正文甲')
+  })
+
+  it('txt 章节正文按字面导出,不做 markdown 剥离(与阅读一致)', async () => {
+    const c: Chapter = { ...ch('a', '章'), ext: 'txt', path: 'a.txt' }
+    const res = await buildTxt([c], getter({ a: '正文有 *星号* 和 # 号' }))
+    expect(String(res.buffer)).toBe('章\n\n正文有 *星号* 和 # 号')
+  })
+
+  it('卷变化时在该卷首章前输出卷名', async () => {
+    const chapters = [ch('a', '甲', '卷一'), ch('b', '乙', '卷一'), ch('c', '丙', '卷二')]
+    const res = await buildTxt(chapters, getter({ a: '甲正文', b: '乙正文', c: '丙正文' }))
+    expect(String(res.buffer)).toBe(
+      '卷一\n\n甲\n\n甲正文\n\n\n乙\n\n乙正文\n\n\n卷二\n\n丙\n\n丙正文',
+    )
+  })
+})
+
 describe('buildMarkdown', () => {
   it('带书名时输出一级标题,章节正文按原样以空行分隔拼接', async () => {
     const res = await buildMarkdown(
@@ -142,6 +171,17 @@ describe('buildMarkdown', () => {
   it('无书名时不输出书名标题', async () => {
     const res = await buildMarkdown([ch('a', '甲')], getter({ a: '甲正文' }))
     expect(String(res.buffer)).toBe('甲正文')
+  })
+
+  it('剥离每章 frontmatter', async () => {
+    const res = await buildMarkdown([ch('a', '甲')], getter({ a: '---\ntitle: T\n---\n## 甲\n甲正文' }))
+    expect(String(res.buffer)).toBe('## 甲\n甲正文')
+  })
+
+  it('卷变化时输出 # 卷名 分组', async () => {
+    const chapters = [ch('a', '甲', '卷一'), ch('b', '乙', '卷二')]
+    const res = await buildMarkdown(chapters, getter({ a: '## 甲\n甲正文', b: '## 乙\n乙正文' }))
+    expect(String(res.buffer)).toBe('# 卷一\n\n## 甲\n甲正文\n\n# 卷二\n\n## 乙\n乙正文')
   })
 })
 
