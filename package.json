@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "本地 Markdown / 纯文本聚合阅读 & 编辑器:把一个文件夹或一个大文件的散落文本,聚合成一本连续、可搜索、可编辑的书。纯本地、零上传。",
+  "description": "本地 Markdown / 纯文本聚合阅读器:把一个文件夹或一个大文件里散落的文本,聚合成一本连续、可导航、可搜索、可导出的书;读为先,顺手可就地编辑与整理。纯本地、零上传。",
   "license": "MIT",
   "author": "rockbenben",
   "homepage": "https://github.com/rockbenben/markbook#readme",
