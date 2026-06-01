@@ -42,6 +42,17 @@ export function stripLeadingTitle(body: string, title: string, ext: ChapterExt):
 
 const CJK_CHAR_RE = /[\p{Script=Han}぀-ヿ]/u
 
+// 整行仅由句子标点组成(……、。。。、？！…)——是正文里的停顿/反应行,不算分隔条。
+const SENTENCE_PUNCT_ONLY_RE = /^[？！。…，、；：?!.,;:]+$/u
+/**
+ * 分隔条:整行 ≥3 个纯符号(=====、----、****、~~~~、→→→ 等,无字母/数字/空白),但排除纯句子标点行。
+ * 借鉴 novel-processor;txt 里这类装饰行不应作为正文段落显示。
+ */
+export function isSeparatorBar(line: string): boolean {
+  const t = line.trim()
+  return t.length >= 3 && /^[^\p{L}\p{N}\s]+$/u.test(t) && !SENTENCE_PUNCT_ONLY_RE.test(t)
+}
+
 /** 合并一段内的折行:CJK 字符相接处直接拼,其余用空格(西文单词不黏连)。 */
 function joinWrapped(lines: string[]): string {
   let out = ''
@@ -61,13 +72,14 @@ function joinWrapped(lines: string[]): string {
  */
 export function toParagraphs(text: string): string[] {
   const t = text.replace(/\r\n?/g, '\n')
+  const keep = (l: string) => l !== '' && !isSeparatorBar(l)
   if (/\n[ \t]*\n/.test(t)) {
     return t
       .split(/\n[ \t]*\n/)
-      .map((block) => joinWrapped(block.split('\n').map((l) => l.trim()).filter(Boolean)))
+      .map((block) => joinWrapped(block.split('\n').map((l) => l.trim()).filter(keep)))
       .filter(Boolean)
   }
-  return t.split('\n').map((l) => l.trim()).filter(Boolean)
+  return t.split('\n').map((l) => l.trim()).filter(keep)
 }
 
 /** 文本是否大到该分页渲染而非整章一次性渲染。 */

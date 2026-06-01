@@ -255,6 +255,27 @@ describe('splitFileIntoSections — # 篇(markdown 装饰)+ Setext=== 的 第X�
   })
 })
 
+describe('splitFileIntoSections — 标记负向先行断言(借鉴 novel-processor)', () => {
+  it('回合 / 部分 / 集合 等词不被误判为章 / 卷', () => {
+    const txt = ['第一章 开端', '正文甲', '第三回合', '第二部分', '第三集合', '第二章 续', '正文乙'].join('\n')
+    const secs = splitFileIntoSections(txt, 'txt')
+    expect(secs.map((s) => s.title)).toEqual(['第一章 开端', '第二章 续'])
+  })
+  it('节课 不被误判为章(第X节)', () => {
+    const txt = ['第一章 甲', '今天上第三节课', '正文', '第二章 乙', '正文'].join('\n')
+    const secs = splitFileIntoSections(txt, 'txt')
+    expect(secs.map((s) => s.title)).toEqual(['第一章 甲', '第二章 乙'])
+  })
+  it('扉页 作为特殊章被识别', () => {
+    const secs = splitFileIntoSections('扉页\n版权页\n第一章 甲\n正文', 'txt')
+    expect(secs.map((s) => s.title)).toEqual(['扉页', '第一章 甲'])
+  })
+  it('第X幕 作为章被识别(幕布不算)', () => {
+    const secs = splitFileIntoSections('第一幕 登场\n甲\n第二幕 转折\n乙', 'txt')
+    expect(secs.map((s) => s.title)).toEqual(['第一幕 登场', '第二幕 转折'])
+  })
+})
+
 describe('splitFileIntoSections — decimal dotted headings', () => {
   it('1/2/2.1/3 → sections; 2.1 nested under 2', () => {
     const txt = '1 概述\n概述正文\n2 安装\n安装正文\n2.1 步骤\n步骤正文\n3 配置\n配置正文\n'

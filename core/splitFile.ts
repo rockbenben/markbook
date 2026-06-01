@@ -24,18 +24,19 @@ const NUM = '0-9０-９零〇一二三四五六七八九壹贰叁肆伍陆柒捌
 const BRACKET = '【】「」『』《》〈〉\\[\\]（）()〔〕'
 const STRIP_RE = new RegExp(`[${BRACKET}\\s]`, 'g')
 
-// 卷级(level 1)标记:第X卷/部/篇/集、卷X、上/中/下 卷/部、Vol/Volume/Book/Part N。
+// 卷级(level 1)标记:第X卷/部/篇/集、卷X、上/中/下 卷/部/册、Vol/Volume/Book/Part N。
+// 标记后接负向先行断言,排除「部分/部赛/部游、集合/集和、篇张」等常见词被误判(借鉴 novel-processor)。
 const VOLUME_RES: RegExp[] = [
-  new RegExp(`^\\s*[${BRACKET}]?\\s*第[${NUM}]+[卷部篇集][^\\n]*$`),
+  new RegExp(`^\\s*[${BRACKET}]?\\s*第[${NUM}]+(?:卷|部(?![分赛游])|篇(?!张)|集(?![合和]))[^\\n]*$`),
   new RegExp(`^\\s*[${BRACKET}]?\\s*卷[${NUM}]+[^\\n]*$`),
-  /^\s*[【「『《〈[（(]?\s*[上中下](?:卷|部)\s*[^\n]*$/,
+  /^\s*[【「『《〈[（(]?\s*[上中下](?:卷|部|册)\s*[^\n]*$/,
   /^\s*(?:Vol(?:ume)?|Book|Part)\.?\s+\d+\b[^\n]*$/i,
 ]
 
-// 章级(level 2)标记。
+// 章级(level 2)标记。负向先行断言排除「回合/回访/回忆…、节课、部分…、幕布/幕前后」等(借鉴 novel-processor)。
 const CHAPTER_RES: RegExp[] = [
-  // 第X章/节/回/话/折(允许「正文 第X章」前缀)
-  new RegExp(`^\\s*[${BRACKET}]?\\s*(?:正文\\s*)?第[${NUM}]+[章节回话折][^\\n]*$`),
+  // 第X章/节/回/话/折/幕(允许「正文 第X章」前缀)
+  new RegExp(`^\\s*[${BRACKET}]?\\s*(?:正文\\s*)?第[${NUM}]+(?:章|节(?!课)|回(?![合访忆顾应答音])|话|折|幕(?![前后布]))[^\\n]*$`),
   // 裸 第X(无类别字),如「第108」
   new RegExp(`^\\s*[${BRACKET}]?\\s*第[${NUM}]+\\s*$`),
   // Chapter N / Ch. N / CHAPTER N / Section N
@@ -117,7 +118,7 @@ function matchGeneralHeading(line: string): { title: string; level: number } | n
 
 // 特殊独立章(无编号),作为章级标题。
 const SPECIAL_TITLES = new Set([
-  '序', '序章', '序言', '楔子', '引子', '前言', '卷首语',
+  '序', '序章', '序言', '楔子', '引子', '前言', '卷首语', '扉页',
   '尾声', '终章', '后记', '番外', '外传', '附录', '完本感言',
 ])
 

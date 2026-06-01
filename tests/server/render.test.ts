@@ -50,6 +50,16 @@ describe('toParagraphs', () => {
   it('空串得到空数组', () => {
     expect(toParagraphs('')).toEqual([])
   })
+  it('纯符号分隔条不作为段落(借鉴 novel-processor isSeparatorBar)', () => {
+    expect(toParagraphs('正文一\n====================\n正文二')).toEqual(['正文一', '正文二'])
+    expect(toParagraphs('正文一\n****\n正文二')).toEqual(['正文一', '正文二'])
+  })
+  it('空行分隔模式下也丢弃分隔条', () => {
+    expect(toParagraphs('正文一\n\n====\n\n正文二')).toEqual(['正文一', '正文二'])
+  })
+  it('纯句子标点行(……)不算分隔条,予以保留', () => {
+    expect(toParagraphs('他停顿\n……\n继续')).toEqual(['他停顿', '……', '继续'])
+  })
 })
 
 describe('isLargeText', () => {
