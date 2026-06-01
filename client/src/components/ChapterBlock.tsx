@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react'
 import { Button, Tag, Typography } from 'antd'
-import ReactMarkdown from 'react-markdown'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeSlug from 'rehype-slug'
 import rehypeAutolink from 'rehype-autolink-headings'
@@ -8,11 +8,36 @@ import rehypeHighlight from 'rehype-highlight'
 import type { PluggableList } from 'unified'
 import type { Chapter, ChapterExt } from '../../../shared/types'
 import { cleanBody, toParagraphs, isLargeText, paginate, PAGE_CHARS, frontmatterTags } from '../../../core/render'
-import type { ViewMode } from '../store'
+import { resolveChapterLink } from '../../../core/links'
+import { useStore, type ViewMode } from '../store'
 
 const REMARK_PLUGINS = [remarkGfm]
 // rehypeHighlight 容错:遇未知语言 / 解析异常不抛错,仅跳过该块。
 const REHYPE_PLUGINS: PluggableList = [rehypeSlug, rehypeAutolink, [rehypeHighlight, { ignoreMissing: true }]]
+
+// 按章节路径缓存自定义 components,保持引用稳定(避免 ReactMarkdown 每次全量重渲)。
+const componentsCache = new Map<string, Components>()
+function mdComponentsFor(chapterPath: string): Components {
+  let c = componentsCache.get(chapterPath)
+  if (!c) {
+    c = {
+      // 跨文件链接:相对 .md/.txt 链接点击时跳到对应章,而非离开页面。外链照常。
+      a({ href, children, ...rest }) {
+        const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+          if (!href) return
+          const target = resolveChapterLink(href, chapterPath, useStore.getState().chapters)
+          if (target) {
+            e.preventDefault()
+            window.dispatchEvent(new CustomEvent('cv:jump', { detail: target.id }))
+          }
+        }
+        return <a href={href} onClick={onClick} {...rest}>{children}</a>
+      },
+    }
+    componentsCache.set(chapterPath, c)
+  }
+  return c
+}
 
 interface Props {
   chapter: Chapter
@@ -21,10 +46,10 @@ interface Props {
 }
 
 /** 一页正文:md 走 markdown,txt 走段落。 */
-function PageBody({ text, ext }: { text: string; ext: ChapterExt }) {
+function PageBody({ text, ext, chapterPath }: { text: string; ext: ChapterExt; chapterPath: string }) {
   if (ext === 'md') {
     return (
-      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS} components={mdComponentsFor(chapterPath)}>
         {text}
       </ReactMarkdown>
     )
@@ -39,13 +64,13 @@ function PageBody({ text, ext }: { text: string; ext: ChapterExt }) {
 }
 
 /** 超大单章:分页渲染,任一时刻只把一页放进 DOM,避免几十 MB 整章塞满 DOM。 */
-function PaginatedBody({ text, ext }: { text: string; ext: ChapterExt }) {
+function PaginatedBody({ text, ext, chapterPath }: { text: string; ext: ChapterExt; chapterPath: string }) {
   const pages = useMemo(() => paginate(text, PAGE_CHARS), [text])
   const [page, setPage] = useState(0)
   const p = Math.min(page, pages.length - 1)
   return (
     <>
-      <PageBody text={pages[p]} ext={ext} />
+      <PageBody text={pages[p]} ext={ext} chapterPath={chapterPath} />
       <nav className="chapter-pager">
         <Button size="small" disabled={p === 0} onClick={() => setPage(p - 1)}>上一页</Button>
         <span>第 {p + 1} / {pages.length} 页</span>
@@ -59,8 +84,8 @@ function PaginatedBody({ text, ext }: { text: string; ext: ChapterExt }) {
 function renderBody(chapter: Chapter, content: string) {
   const clean = cleanBody(content, chapter.title, chapter.ext)
   // 超大单章分页渲染,避免整章一次性塞满 DOM。
-  if (isLargeText(clean)) return <PaginatedBody text={clean} ext={chapter.ext} />
-  return <PageBody text={clean} ext={chapter.ext} />
+  if (isLargeText(clean)) return <PaginatedBody text={clean} ext={chapter.ext} chapterPath={chapter.path} />
+  return <PageBody text={clean} ext={chapter.ext} chapterPath={chapter.path} />
 }
 
 function ChapterBlockImpl({ chapter, view, content }: Props) {
