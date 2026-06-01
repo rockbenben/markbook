@@ -37,12 +37,12 @@
 
 MarkBook 把一堆文本——几百个 `第001章.md`、一份分了几十节的 `手册.md`、或一文件夹杂乱笔记——当作**一本书**来读和改:
 
-- **📚 聚合 / 拆分** —— 目录下所有 `.md` / `.txt` 按自然顺序拼成一页连续滚动文档;打开单个大文件时按标题(`#` / `##`、`第X章`、`一、`、`1.1`、Setext 下划线……)自动切章。
+- **📚 聚合 / 拆分** —— 目录下所有 `.md` / `.txt` 按自然顺序拼成一页连续滚动文档;打开单个大文件时按标题(`#` / `##`、`第X章`、`一、`、`1.1`、Setext 下划线……)自动切章。`.md` 支持 YAML frontmatter 的 `title`;`.txt` 里中文章节语义(篇 / 卷 > 章 / 节)优先于排版装饰,`#`、`===` 当装饰处理。
 - **🧭 导航** —— 左侧自动生成、按卷分组、可折叠可过滤的目录(TOC),滚动时高亮并跟随当前章;`j` / `k`、空格翻页、`Home` / `End` 快捷键。
 - **🔍 搜索** —— FlexSearch 索引 + `Intl.Segmenter` 中文分词,多词 / 前缀 / 相关度排序,显示每章命中数,跳转后高亮命中。
 - **✏️ 编辑** —— CodeMirror 就地编辑写回源文件,Markdown 高亮、双栏预览、防抖自动保存、基于 mtime 的冲突检测、跨章全局查找替换、章节新建 / 改名 / 删除。
 - **📤 导出** —— 整本或按卷导出 TXT / Markdown / HTML(自带目录与样式)/ EPUB / PDF。
-- **🎨 阅读体验** —— 虚拟化渲染(几百上千章也流畅)、排版 / 原文视图、字号 / 行距 / 字体 / 页宽 / 首行缩进、护眼 / 羊皮纸 / 夜间背景、沉浸模式、阅读进度与书签,全部持久化。
+- **🎨 阅读体验** —— 虚拟化渲染(几百上千章也流畅,超大单章自动分页)、排版 / 原文视图(`.txt` 也按正文排版、图片不溢出)、字号 / 行距 / 字体 / 页宽 / 首行缩进、护眼 / 羊皮纸 / 夜间背景、沉浸模式、阅读进度与书签,全部持久化。
 - **⚡ 实时同步** —— chokidar 监听 + WebSocket 推送,外部改动文件后视图平滑更新并保留滚动位置(服务端版)。
 
 > 一切在本机运行,数据不出本地。逐项说明见 [使用指南](docs/USAGE.md)。
@@ -124,7 +124,7 @@ node dist/server/index.js "D:\我的小说\全本.md"
 
 ## 技术栈
 
-- **前端** —— Vite + React + TypeScript + antd v6 + zustand;阅读 react-markdown(remark-gfm),编辑 CodeMirror 6(按需懒加载),列表 react-virtuoso。
+- **前端** —— Vite + React + TypeScript + antd v6 + zustand;阅读 react-markdown(remark-gfm)、frontmatter 解析 yaml,编辑 CodeMirror 6(按需懒加载),列表 react-virtuoso。
 - **后端** —— Fastify + chokidar + WebSocket,搜索 FlexSearch,导出 unified / epub-gen-memory,生产经 esbuild 打包为单文件服务。
 - **共享核心** —— 与运行环境无关的逻辑(解析 / 拆分 / 排序 / 搜索 / 导出 / id)集中在 `core/`,服务端与浏览器端共用。静态版(`npm run build:static`,vite-plugin-pwa)正是用它把同一套逻辑搬进浏览器,经 File System Access API + localStorage 实现零服务端运行。
 
