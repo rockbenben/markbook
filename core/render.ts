@@ -1,6 +1,7 @@
 // 阅读视图的共享渲染预处理(浏览器/Node 同构,txt 与 md 共用)。把「清洗正文」的逻辑
 // 收在 core,ChapterBlock 只负责把结果落成 React 节点;txt 与 md 仅在最后渲染那一步分叉。
 import type { ChapterExt } from '../shared/types'
+import { extractFrontmatter } from './parse'
 
 // 单章超过此字符数时改为分页渲染,避免几十 MB 无标题大文件把整章一次性塞进 DOM。
 export const LARGE_TXT_CHARS = 200_000
@@ -80,6 +81,28 @@ export function toParagraphs(text: string): string[] {
       .filter(Boolean)
   }
   return t.split('\n').map((l) => l.trim()).filter(keep)
+}
+
+/** 章节正文的统一清洗:剥 frontmatter + 去掉与章节标题重复的首行标题。ChapterBlock 与章内大纲共用,保证一致。 */
+export function cleanBody(content: string, title: string, ext: ChapterExt): string {
+  const { body } = extractFrontmatter(content)
+  return stripLeadingTitle(body, title, ext)
+}
+
+const HEADING_LINE_RE = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/
+const FENCE_LINE_RE = /^\s{0,3}(?:`{3,}|~{3,})/
+
+/** 提取 md 的 `#` 标题(depth = `#` 数,text = 标题文本),跳过围栏代码块内的行。供章内大纲用。 */
+export function extractHeadings(md: string): { depth: number; text: string }[] {
+  const out: { depth: number; text: string }[] = []
+  let inFence = false
+  for (const line of md.split('\n')) {
+    if (FENCE_LINE_RE.test(line)) { inFence = !inFence; continue }
+    if (inFence) continue
+    const m = line.match(HEADING_LINE_RE)
+    if (m) out.push({ depth: m[1].length, text: m[2].trim() })
+  }
+  return out
 }
 
 /** 文本是否大到该分页渲染而非整章一次性渲染。 */

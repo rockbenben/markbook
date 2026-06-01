@@ -7,8 +7,7 @@ import rehypeAutolink from 'rehype-autolink-headings'
 import rehypeHighlight from 'rehype-highlight'
 import type { PluggableList } from 'unified'
 import type { Chapter, ChapterExt } from '../../../shared/types'
-import { extractFrontmatter } from '../../../core/parse'
-import { stripLeadingTitle, toParagraphs, isLargeText, paginate, PAGE_CHARS } from '../../../core/render'
+import { cleanBody, toParagraphs, isLargeText, paginate, PAGE_CHARS } from '../../../core/render'
 import type { ViewMode } from '../store'
 
 const REMARK_PLUGINS = [remarkGfm]
@@ -58,8 +57,7 @@ function PaginatedBody({ text, ext }: { text: string; ext: ChapterExt }) {
 
 /** 排版视图正文:md / txt 共用清洗(剥 frontmatter + 去重复首行标题),只在最后落节点处分叉。 */
 function renderBody(chapter: Chapter, content: string) {
-  const { body } = extractFrontmatter(content)
-  const clean = stripLeadingTitle(body, chapter.title, chapter.ext)
+  const clean = cleanBody(content, chapter.title, chapter.ext)
   // 超大单章分页渲染,避免整章一次性塞满 DOM。
   if (isLargeText(clean)) return <PaginatedBody text={clean} ext={chapter.ext} />
   return <PageBody text={clean} ext={chapter.ext} />

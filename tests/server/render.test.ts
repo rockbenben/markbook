@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stripLeadingTitle, toParagraphs, isLargeText, LARGE_TXT_CHARS, paginate } from '../../core/render'
+import { stripLeadingTitle, toParagraphs, isLargeText, LARGE_TXT_CHARS, paginate, cleanBody, extractHeadings } from '../../core/render'
 
 describe('stripLeadingTitle', () => {
   it('md:去掉与标题相同的首个 # 标题行', () => {
@@ -68,6 +68,31 @@ describe('isLargeText', () => {
   })
   it('超过阈值算大', () => {
     expect(isLargeText('x'.repeat(LARGE_TXT_CHARS + 1))).toBe(true)
+  })
+})
+
+describe('cleanBody', () => {
+  it('剥 frontmatter + 去重复首行标题', () => {
+    expect(cleanBody('---\ntitle: T\n---\n# 标题\n正文', '标题', 'md')).toBe('正文')
+  })
+  it('无 frontmatter / 标题不同名时保留正文', () => {
+    expect(cleanBody('# 别名\n正文', '标题', 'md')).toBe('# 别名\n正文')
+  })
+})
+
+describe('extractHeadings', () => {
+  it('提取 md 标题(depth+text)', () => {
+    expect(extractHeadings('## A\n正文\n### B\n#### C')).toEqual([
+      { depth: 2, text: 'A' }, { depth: 3, text: 'B' }, { depth: 4, text: 'C' },
+    ])
+  })
+  it('跳过围栏代码块内的 #', () => {
+    expect(extractHeadings('## A\n```\n# 注释不是标题\n```\n### B')).toEqual([
+      { depth: 2, text: 'A' }, { depth: 3, text: 'B' },
+    ])
+  })
+  it('无标题→空数组', () => {
+    expect(extractHeadings('正文\n更多正文')).toEqual([])
   })
 })
 

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { Button, Empty, Flex, Spin, Typography } from 'antd'
+import GithubSlugger from 'github-slugger'
 import { useStore } from '../store'
 import { api } from '../api'
 import { highlightInContainer, clearHighlight } from '../highlight'
+import { cleanBody, extractHeadings } from '../../../core/render'
 import { ChapterItem } from './ChapterItem'
+import { ChapterOutline } from './ChapterOutline'
 import { SourcePicker } from './SourcePicker'
 import type { Chapter } from '../../../shared/types'
 
@@ -45,6 +48,9 @@ export function AggregatedView() {
   const loaded = useStore((s) => s.loaded)
   const setActive = useStore((s) => s.setActive)
   const reading = useStore((s) => s.reading)
+  // 章内大纲:当前激活 md 章节的子标题(随滚动跟随)。
+  const activeId = useStore((s) => s.activeChapterId)
+  const activeText = useStore((s) => (s.activeChapterId ? s.contentById[s.activeChapterId]?.text : undefined))
   const ref = useRef<VirtuosoHandle>(null)
   // 滚动容器存为 state(而非仅 ref):Virtuoso 在本组件首个 effect 跑完之后才回调
   // 赋值,若只用 ref,scroll-spy effect 首跑时拿到 null 便提前返回,且不会再重绑——
@@ -173,6 +179,22 @@ export function AggregatedView() {
     return () => { el.removeEventListener('scroll', onScroll); mo.disconnect(); cancelAnimationFrame(raf) }
   }, [setActive, scrollerEl, chapters.length])
 
+  // 章内大纲项:与正文渲染一致的清洗 + 同序 github-slugger 生成锚点,确保 slug 命中 rehype-slug 的 id。
+  const outlineItems = useMemo(() => {
+    const active = chapters.find((c) => c.id === activeId)
+    if (!active || active.ext !== 'md' || !activeText) return []
+    const headings = extractHeadings(cleanBody(activeText, active.title, active.ext))
+    const slugger = new GithubSlugger()
+    return headings.map((h) => ({ depth: h.depth, text: h.text, slug: slugger.slug(h.text) }))
+  }, [activeId, activeText, chapters])
+
+  // 跳到当前章内的某个子标题:在该章 section 内按锚点 id 定位(slug 可能跨章重复,故限定本章范围)。
+  const jumpToHeading = (slug: string) => {
+    const section = scrollerEl?.querySelector(`[data-chapter-id="${activeId}"]`)
+    const el = section?.querySelector(`#${CSS.escape(slug)}`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   // 加载中(首次拉取尚未完成):居中 Spin,沿用阅读样式容器以保留纸张/夜间背景。
   if (!loaded) {
     return (
@@ -207,18 +229,21 @@ export function AggregatedView() {
   }
 
   return (
-    <Virtuoso
-      ref={ref}
-      scrollerRef={(el) => { setScrollerEl((el as HTMLElement) ?? null) }}
-      className="main"
-      style={readingStyle}
-      data={chapters}
-      computeItemKey={(_, c) => c.id}
-      itemContent={(_, c) => (
-        <div style={{ padding: '0 24px' }}>
-          <ChapterItem chapter={c} />
-        </div>
-      )}
-    />
+    <>
+      <Virtuoso
+        ref={ref}
+        scrollerRef={(el) => { setScrollerEl((el as HTMLElement) ?? null) }}
+        className="main"
+        style={readingStyle}
+        data={chapters}
+        computeItemKey={(_, c) => c.id}
+        itemContent={(_, c) => (
+          <div style={{ padding: '0 24px' }}>
+            <ChapterItem chapter={c} />
+          </div>
+        )}
+      />
+      <ChapterOutline items={outlineItems} onJump={jumpToHeading} />
+    </>
   )
 }
