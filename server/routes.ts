@@ -13,6 +13,7 @@ import { startWatcher, SelfWriteGuard } from './watcher'
 import { WSHub, snapshotMessage } from './ws'
 import { buildTxt, buildMarkdown, buildHtml, buildEpub } from './export'
 import { escapeRegExp, countMatches as countMatchesIn } from '../core/regex'
+import { tidyText, type TidyOptions } from '../core/tidy'
 import type { AppConfig, SaveRequest } from '../shared/types'
 
 declare module 'fastify' {
@@ -31,6 +32,7 @@ export interface BuildOptions {
 }
 
 interface ReplaceBody { find: string; replace: string; useRegex?: boolean; dryRun?: boolean }
+interface TidyBody { options?: TidyOptions }
 
 export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
@@ -237,6 +239,54 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     }
     hub.broadcast({ type: 'reset', chapters: store.list() })
     const result: { replaced: number; total: number; failed?: number } = { replaced, total }
+    if (failed > 0) result.failed = failed
+    return result
+  })
+
+  app.post<{ Body: TidyBody }>('/api/tidy', async (req, reply) => {
+    const options = req.body?.options ?? {}
+    const chapters = store.list()
+
+    // 单文件:整文件清洗一次 + 写入 + 重建。
+    if (store.isSingleFile()) {
+      const root = cfg.root
+      const whole = await readFile(root, 'utf8')
+      const next = tidyText(whole, options)
+      if (next === whole) return { changed: 0 }
+      guard.mark(root, now())
+      await writeFile(root, next, 'utf8')
+      await store.rebuild()
+      guard.mark(root, now())
+      hub.broadcast({ type: 'reset', chapters: store.list() })
+      return { changed: 1 }
+    }
+
+    // 目录模式:逐文件现读现写,只写回有改动者;单文件失败不影响其余。
+    let changed = 0
+    let failed = 0
+    const marked: string[] = []
+    for (const c of chapters) {
+      const abs = store.absOf(c.id)
+      if (!abs) continue
+      try {
+        const fresh = await readRaw(abs)
+        const next = tidyText(fresh.content, options)
+        if (next === fresh.content) continue
+        guard.mark(abs, now())
+        await store.saveChapter(c.id, next, fresh.mtime)
+        await store.upsertFile(abs) // 整理可能改到标题行,刷新 title/wordCount
+        marked.push(abs)
+        changed++
+      } catch {
+        failed++
+      }
+    }
+    for (const abs of marked) guard.mark(abs, now())
+    if (failed > 0 && changed === 0) {
+      return reply.code(500).send({ error: 'tidy_failed', message: '整理失败', failed })
+    }
+    hub.broadcast({ type: 'reset', chapters: store.list() })
+    const result: { changed: number; failed?: number } = { changed }
     if (failed > 0) result.failed = failed
     return result
   })

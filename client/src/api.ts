@@ -69,6 +69,11 @@ const serverApi: Backend = {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
     }).then(json<ReplaceResult>),
+  tidy: (options) =>
+    cvFetch('/api/tidy', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ options }),
+    }).then(json<{ changed: number }>),
   createChapter: (body) =>
     cvFetch('/api/chapters', {
       method: 'POST', headers: { 'content-type': 'application/json' },

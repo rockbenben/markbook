@@ -45,6 +45,28 @@ describe('routes', () => {
     expect(res.statusCode).toBe(200)
     expect(res.json().mtime).toBeGreaterThanOrEqual(raw.mtime)
   })
+  it('POST /api/tidy 整理目录文件并写回(全角转半角 + 压缩空行)', async () => {
+    const list = (await app.inject({ method: 'GET', url: '/api/chapters' })).json()
+    const raw = (await app.inject({ method: 'GET', url: `/api/chapters/${list[0].id}/raw` })).json()
+    // 先写入带可整理内容:全角数字 + 多余空行
+    await app.inject({
+      method: 'PUT', url: `/api/chapters/${list[0].id}`,
+      payload: { content: '# 第１章\n\n\n\n正文', baseMtime: raw.mtime },
+    })
+    const res = await app.inject({
+      method: 'POST', url: '/api/tidy',
+      payload: { options: { halfWidth: true, compressBlankLines: true } },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().changed).toBe(1)
+    const after = (await app.inject({ method: 'GET', url: `/api/chapters/${list[0].id}/raw` })).json()
+    expect(after.content).toBe('# 第1章\n\n正文')
+  })
+  it('POST /api/tidy 无改动返回 changed 0', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/tidy', payload: { options: { halfWidth: true } } })
+    expect(res.json().changed).toBe(0)
+  })
+
   it('GET /api/search?q= 命中返回章节', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/search?q=正文' })
     expect(res.json()).toHaveLength(1)
