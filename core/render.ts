@@ -40,9 +40,34 @@ export function stripLeadingTitle(body: string, title: string, ext: ChapterExt):
   return body
 }
 
-/** 把纯文本切成阅读段落:按行分,去首尾空白,丢弃空行(中文小说一行一段的主流形态)。 */
+const CJK_CHAR_RE = /[\p{Script=Han}぀-ヿ]/u
+
+/** 合并一段内的折行:CJK 字符相接处直接拼,其余用空格(西文单词不黏连)。 */
+function joinWrapped(lines: string[]): string {
+  let out = ''
+  for (const line of lines) {
+    if (!out) { out = line; continue }
+    const a = out[out.length - 1], b = line[0]
+    out += CJK_CHAR_RE.test(a) && CJK_CHAR_RE.test(b) ? '' : ' '
+    out += line
+  }
+  return out
+}
+
+/**
+ * 把纯文本切成阅读段落,自适应两种主流形态:
+ *  - **有空行分隔**(西文 / 排版文本):按空行分段,段内折行合并(CJK 无空格、西文加空格)。
+ *  - **无空行**(中文小说密排):一行一段。
+ */
 export function toParagraphs(text: string): string[] {
-  return text.split('\n').map((l) => l.trim()).filter((l) => l !== '')
+  const t = text.replace(/\r\n?/g, '\n')
+  if (/\n[ \t]*\n/.test(t)) {
+    return t
+      .split(/\n[ \t]*\n/)
+      .map((block) => joinWrapped(block.split('\n').map((l) => l.trim()).filter(Boolean)))
+      .filter(Boolean)
+  }
+  return t.split('\n').map((l) => l.trim()).filter(Boolean)
 }
 
 /** 文本是否大到该分页渲染而非整章一次性渲染。 */

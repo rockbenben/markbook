@@ -23,8 +23,29 @@ describe('stripLeadingTitle', () => {
 })
 
 describe('toParagraphs', () => {
-  it('按行切段,去首尾空白并丢弃空行', () => {
-    expect(toParagraphs('a\n\nb\n c ')).toEqual(['a', 'b', 'c'])
+  it('无空行(中文小说密排)→ 一行一段', () => {
+    expect(toParagraphs('第一段\n第二段\n第三段')).toEqual(['第一段', '第二段', '第三段'])
+  })
+  it('有空行分隔 → 按空行分段,段内折行合并', () => {
+    expect(toParagraphs('第一段\n\n第二段')).toEqual(['第一段', '第二段'])
+  })
+  it('西文段内折行用空格合并', () => {
+    expect(toParagraphs('Hello world\nthis wraps.\n\nSecond para.')).toEqual([
+      'Hello world this wraps.',
+      'Second para.',
+    ])
+  })
+  it('CJK 段内折行无空格合并', () => {
+    expect(toParagraphs('中文第一行\n续在下一行\n\n第二段')).toEqual([
+      '中文第一行续在下一行',
+      '第二段',
+    ])
+  })
+  it('CRLF 同样识别空行分段', () => {
+    expect(toParagraphs('A line\r\nwrap\r\n\r\nB')).toEqual(['A line wrap', 'B'])
+  })
+  it('丢弃多余空行,不产生空段', () => {
+    expect(toParagraphs('a\n\n\n\nb')).toEqual(['a', 'b'])
   })
   it('空串得到空数组', () => {
     expect(toParagraphs('')).toEqual([])
