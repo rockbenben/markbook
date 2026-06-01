@@ -74,6 +74,11 @@ const serverApi: Backend = {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ options }),
     }).then(json<{ changed: number }>),
+  // 相对资源:返回带令牌的 /api/asset URL(普通 URL,非 blob,无需回收)。
+  asset: async (p) => {
+    const t = clientToken()
+    return '/api/asset?path=' + encodeURIComponent(p) + (t ? '&token=' + encodeURIComponent(t) : '')
+  },
   createChapter: (body) =>
     cvFetch('/api/chapters', {
       method: 'POST', headers: { 'content-type': 'application/json' },

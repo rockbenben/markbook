@@ -34,6 +34,14 @@ export interface BuildOptions {
 interface ReplaceBody { find: string; replace: string; useRegex?: boolean; dryRun?: boolean }
 interface TidyBody { options?: TidyOptions }
 
+const ASSET_MIME: Record<string, string> = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif',
+  '.webp': 'image/webp', '.svg': 'image/svg+xml', '.avif': 'image/avif', '.bmp': 'image/bmp', '.ico': 'image/x-icon',
+}
+function assetMime(p: string): string {
+  return ASSET_MIME[path.extname(p).toLowerCase()] ?? 'application/octet-stream'
+}
+
 export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
   await app.register(fastifyWebsocket)
@@ -289,6 +297,25 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     const result: { changed: number; failed?: number } = { changed }
     if (failed > 0) result.failed = failed
     return result
+  })
+
+  app.get<{ Querystring: { path?: string } }>('/api/asset', async (req, reply) => {
+    // 相对资源(md 里的本地图片):仅目录模式;严格沙箱在根目录(及 baseDir)内。
+    const rel = req.query?.path
+    if (typeof rel !== 'string' || rel.length === 0) {
+      return reply.code(400).send({ error: 'empty_path', message: '缺少 path' })
+    }
+    if (store.isSingleFile()) return reply.code(404).send({ error: 'no_asset', message: '单文件模式无相对资源' })
+    const root = cfg.root
+    const abs = path.resolve(root, rel)
+    if (!isWithinBase(root, abs) || !allowed(abs)) {
+      return reply.code(403).send({ error: 'forbidden', message: '越界访问被拒绝' })
+    }
+    if (!existsSync(abs)) return reply.code(404).send({ error: 'not_found', message: '资源不存在' })
+    const data = await readFile(abs)
+    reply.header('content-type', assetMime(abs))
+    reply.header('cache-control', 'no-cache')
+    return reply.send(data)
   })
 
   app.get<{ Querystring: { format?: string; scope?: string } }>('/api/export', async (req, reply) => {

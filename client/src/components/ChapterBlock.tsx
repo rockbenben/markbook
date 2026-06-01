@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { Button, Tag, Typography } from 'antd'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -8,8 +8,25 @@ import rehypeHighlight from 'rehype-highlight'
 import type { PluggableList } from 'unified'
 import type { Chapter, ChapterExt } from '../../../shared/types'
 import { cleanBody, toParagraphs, isLargeText, paginate, PAGE_CHARS, frontmatterTags } from '../../../core/render'
-import { resolveChapterLink } from '../../../core/links'
+import { resolveChapterLink, resolveRelPath, isExternalHref } from '../../../core/links'
+import { api } from '../api'
 import { useStore, type ViewMode } from '../store'
+
+/** 相对图片:把 `![](./img.png)` 的相对 src 经后端解析为可用 URL(目录模式);外链 / 绝对 / data: 照常。 */
+function ChapterImg({ src, alt, chapterPath }: { src?: string; alt?: string; chapterPath: string }) {
+  const [resolved, setResolved] = useState<string | undefined>(src)
+  useEffect(() => {
+    setResolved(src)
+    if (!src || isExternalHref(src) || src.startsWith('/') || !api.asset) return
+    let revoked = false
+    let obj: string | null = null
+    api.asset(resolveRelPath(chapterPath, src)).then((u) => {
+      if (!revoked && u) { obj = u; setResolved(u) }
+    }).catch(() => {})
+    return () => { revoked = true; if (obj && obj.startsWith('blob:')) URL.revokeObjectURL(obj) }
+  }, [src, chapterPath])
+  return <img src={resolved} alt={alt ?? ''} />
+}
 
 const REMARK_PLUGINS = [remarkGfm]
 // rehypeHighlight 容错:遇未知语言 / 解析异常不抛错,仅跳过该块。
@@ -32,6 +49,10 @@ function mdComponentsFor(chapterPath: string): Components {
           }
         }
         return <a href={href} onClick={onClick} {...rest}>{children}</a>
+      },
+      // 相对图片:解析本地资源为可用 URL。
+      img({ src, alt }) {
+        return <ChapterImg src={typeof src === 'string' ? src : undefined} alt={typeof alt === 'string' ? alt : undefined} chapterPath={chapterPath} />
       },
     }
     componentsCache.set(chapterPath, c)

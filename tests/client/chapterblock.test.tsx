@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ChapterBlock } from '../../client/src/components/ChapterBlock'
 import { useStore } from '../../client/src/store'
 import type { Chapter } from '../../shared/types'
@@ -28,6 +28,12 @@ describe('ChapterBlock', () => {
     expect(spy).toHaveBeenCalledTimes(1)
     window.removeEventListener('cv:jump', spy as EventListener)
     useStore.setState({ chapters: [] })
+  })
+  it('md 相对图片经 api.asset 解析 src', async () => {
+    const { container } = render(<ChapterBlock chapter={ch} view="render" content={'![图](./pic.png)'} />)
+    await waitFor(() => {
+      expect(container.querySelector('img')?.getAttribute('src')).toContain('/api/asset?path=')
+    })
   })
   it('源码模式显示 raw 原文', () => {
     render(<ChapterBlock chapter={ch} view="source" content={'# 标题\n原始'} />)

@@ -383,6 +383,25 @@ export class BrowserBackend implements Backend {
     return { changed }
   }
 
+  /** 相对资源(本地图片):仅 FS Access 目录模式可用;逐级取子目录句柄后读文件,返回 blob: URL(调用方负责回收)。 */
+  async asset(relPath: string): Promise<string | null> {
+    if (this.single || !this.dirHandle || !relPath) return null
+    try {
+      const parts = relPath.split('/').filter((p) => p && p !== '.')
+      const file = parts.pop()
+      if (!file) return null
+      let dir = this.dirHandle as unknown as {
+        getDirectoryHandle(n: string): Promise<typeof dir>
+        getFileHandle(n: string): Promise<{ getFile(): Promise<Blob> }>
+      }
+      for (const p of parts) dir = await dir.getDirectoryHandle(p)
+      const fh = await dir.getFileHandle(file)
+      return URL.createObjectURL(await fh.getFile())
+    } catch {
+      return null
+    }
+  }
+
   async browse(): Promise<BrowseResult> { throw new Error('browse 在静态模式不可用') }
   exportUrl(): string | null { return null }
 

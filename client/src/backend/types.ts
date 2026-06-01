@@ -37,8 +37,11 @@ export interface Backend {
   setConfig(patch: Partial<AppConfig>): Promise<AppConfig>
   browse(path?: string): Promise<BrowseResult>
 
-  /** 「整理」:对全书逐文件/整文件应用文本清洗并写回。需可编辑;目前仅浏览器(静态)实现。返回改动文件数。 */
+  /** 「整理」:对全书逐文件/整文件应用文本清洗并写回。需可编辑。返回改动文件数。 */
   tidy?(options: TidyOptions): Promise<{ changed: number }>
+
+  /** 把章节里的相对资源路径(本地图片)解析为可用作 `<img src>` 的 URL;不可用 / 单文件返回 null。 */
+  asset?(path: string): Promise<string | null>
 
   /** 浏览器模式:弹出系统目录选择器,选定后载入并返回新配置(取消返回 null)。 */
   pickRoot?(): Promise<AppConfig | null>

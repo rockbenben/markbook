@@ -67,6 +67,22 @@ describe('routes', () => {
     expect(res.json().changed).toBe(0)
   })
 
+  it('GET /api/asset 在根目录内的图片返回 200 + content-type', async () => {
+    await writeFile(path.join(root, 'pic.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]))
+    const res = await app.inject({ method: 'GET', url: '/api/asset?path=' + encodeURIComponent('pic.png') })
+    expect(res.statusCode).toBe(200)
+    expect(res.headers['content-type']).toContain('image/png')
+    expect(res.rawPayload.length).toBe(7)
+  })
+  it('GET /api/asset 目录穿越被拒(403)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/asset?path=' + encodeURIComponent('../../etc/hosts') })
+    expect(res.statusCode).toBe(403)
+  })
+  it('GET /api/asset 不存在的资源返回 404', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/asset?path=nope.png' })
+    expect(res.statusCode).toBe(404)
+  })
+
   it('GET /api/search?q= 命中返回章节', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/search?q=正文' })
     expect(res.json()).toHaveLength(1)
