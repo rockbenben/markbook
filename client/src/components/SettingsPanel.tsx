@@ -98,13 +98,15 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       if (browser) {
         // 来源已由 SourcePicker 载入;此处只持久化排序 / 标题来源并刷新列表。
         const v = form.getFieldsValue()
-        await api.setConfig({ sortMode: v.sortMode, titleSource: v.titleSource })
+        const cfg = await api.setConfig({ sortMode: v.sortMode, titleSource: v.titleSource })
+        useStore.getState().applySortConfig(cfg.root, cfg.sortMode)
         setChapters(await api.chapters())
         onClose()
         return
       }
       const v = await form.validateFields()
-      await api.setConfig({ root: v.root, sortMode: v.sortMode, titleSource: v.titleSource })
+      const cfg = await api.setConfig({ root: v.root, sortMode: v.sortMode, titleSource: v.titleSource })
+      useStore.getState().applySortConfig(cfg.root, cfg.sortMode)
       // 服务端模式:章节列表由 WS reset 广播自动更新
       onClose()
     } catch (e) {
@@ -176,6 +178,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               { value: 'path', label: '按文件名(默认)' },
               { value: 'global', label: '按标题统一排序' },
               { value: 'volume', label: '按卷分组(子文件夹作为卷)' },
+              { value: 'manual', label: '手动拖动排序' },
             ]}
           />
         </Form.Item>

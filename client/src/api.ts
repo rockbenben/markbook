@@ -136,6 +136,12 @@ const serverApi: Backend = {
     const filename = m ? decodeURIComponent(m[1]) : `导出.${format}`
     return { blob, filename }
   },
+  setOrder: async (order) => {
+    await cvFetch('/api/order', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ order }),
+    }).then(json<{ ok: boolean }>)
+  },
   subscribe: (handlers) => connectWS(handlers),
 }
 

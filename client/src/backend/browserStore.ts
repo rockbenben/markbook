@@ -3,7 +3,7 @@
 // 文件系统、不依赖 DOM,可被完整单测。文件读写(FS Access / 上传)由上层适配器负责。
 import type { Chapter, RawResponse, SearchHit, AppConfig } from '../../../shared/types'
 import { parseTitle, countWords } from '../../../core/parse'
-import { sortChapters } from '../../../core/sorter'
+import { sortChapters, applyManualOrder } from '../../../core/sorter'
 import { SearchIndex, hitDetail } from '../../../core/search'
 import { encodeId } from '../../../core/id'
 
@@ -13,6 +13,7 @@ export interface FileEntry { path: string; content: string; mtime: number }
 export interface LoadOptions {
   sortMode: AppConfig['sortMode']
   titleSource: AppConfig['titleSource']
+  manualOrder?: string[]
 }
 
 const extOf = (rel: string): 'md' | 'txt' => (rel.toLowerCase().endsWith('.txt') ? 'txt' : 'md')
@@ -43,7 +44,10 @@ export class BrowserStore {
       this.byId.set(id, { chapter, content: e.content })
       this.index.add(id, chapter.title, e.content)
     }
-    this.order = sortChapters([...this.byId.values()].map((v) => v.chapter), opts.sortMode)
+    const chs = [...this.byId.values()].map((v) => v.chapter)
+    this.order = opts.sortMode === 'manual'
+      ? applyManualOrder(sortChapters(chs, 'volume'), opts.manualOrder ?? [])
+      : sortChapters(chs, opts.sortMode)
   }
 
   list(): Chapter[] { return [...this.order] }

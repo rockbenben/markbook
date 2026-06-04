@@ -525,6 +525,40 @@ describe('routes', () => {
     const cfg = (await app.inject({ method: 'GET', url: '/api/config' })).json()
     expect(cfg.sortMode).toBe('global') // 内存生效
   })
+
+  it('PUT /api/order 设置手动顺序后 chapters 跟随', async () => {
+    await writeFile(path.join(root, '第2章.md'), '# 第2章')
+    await writeFile(path.join(root, '第3章.md'), '# 第3章')
+    await app.inject({ method: 'PUT', url: '/api/config', payload: { sortMode: 'manual' } })
+    const before = (await app.inject({ url: '/api/chapters' })).json() as { id: string }[]
+    const reversed = before.map(c => c.id).reverse()
+
+    const res = await app.inject({ method: 'PUT', url: '/api/order', payload: { order: reversed } })
+    expect(res.statusCode).toBe(200)
+
+    const after = (await app.inject({ url: '/api/chapters' })).json() as { id: string }[]
+    expect(after.map(c => c.id)).toEqual(reversed)
+  })
+
+  it('导出 TXT 内容顺序跟随手动序', async () => {
+    // beforeEach 只有 第1章.md;再加两个根文件(均 null 卷,单一分组),使整本 reverse = 卷内 reverse
+    await writeFile(path.join(root, '第2章.md'), '# 第2章')
+    await writeFile(path.join(root, '第3章.md'), '# 第3章')
+    await app.inject({ method: 'PUT', url: '/api/config', payload: { sortMode: 'manual' } })
+    const ids = ((await app.inject({ url: '/api/chapters' })).json() as { id: string; title: string }[])
+    const reversed = ids.map(c => c.id).reverse()
+    await app.inject({ method: 'PUT', url: '/api/order', payload: { order: reversed } })
+    const body = (await app.inject({ url: '/api/export?format=txt' })).body
+    // 手动序首章(原末章)标题应早于原首章标题出现
+    const firstTitle = ids[ids.length - 1].title
+    const lastTitle = ids[0].title
+    expect(body.indexOf(firstTitle)).toBeLessThan(body.indexOf(lastTitle))
+  })
+
+  it('PUT /api/order 拒绝非字符串数组', async () => {
+    const res = await app.inject({ method: 'PUT', url: '/api/order', payload: { order: [1, 2] } })
+    expect(res.statusCode).toBe(400)
+  })
 })
 
 describe('routes 安全(opt-in token / sandbox)', () => {

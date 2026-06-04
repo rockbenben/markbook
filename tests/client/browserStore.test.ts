@@ -79,3 +79,18 @@ describe('BrowserStore id 稳定性', () => {
     expect(a).toBe(b)
   })
 })
+
+describe('BrowserStore manual sort', () => {
+  it('manual 模式按 manualOrder 排序(卷内)', () => {
+    const store = new BrowserStore()
+    const entries = [
+      { path: 'a.md', content: '# A', mtime: 0 },
+      { path: 'b.md', content: '# B', mtime: 0 },
+      { path: 'c.md', content: '# C', mtime: 0 },
+    ]
+    store.load(entries, { sortMode: 'path', titleSource: 'heading' })
+    const [idA, idB, idC] = store.list().map(c => c.id)
+    store.load(entries, { sortMode: 'manual', titleSource: 'heading', manualOrder: [idC, idA, idB] })
+    expect(store.list().map(c => c.id)).toEqual([idC, idA, idB])
+  })
+})

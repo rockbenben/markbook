@@ -1,53 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { App, Button, Dropdown, Input, Menu, Modal, Tooltip } from 'antd'
-import { MoreOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { App, Button, Input, Menu, Modal, Tooltip } from 'antd'
+import { PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 import type { Chapter } from '../../../shared/types'
 import { api } from '../api'
+import { useStore } from '../store'
+import { ChapterLabel } from './ChapterLabel'
+import { TocTree } from './TocTree'
 
 interface Props { chapters: Chapter[]; activeId: string | null; onJump: (id: string) => void }
 
 const volKey = (volume: string) => `vol:${volume}`
-
-/** 章节行标签:标题 + 悬停可见的「⋯」操作菜单。操作触发器 stopPropagation,避免触发跳转。 */
-function ChapterLabel({
-  chapter, onRename, onDelete,
-}: { chapter: Chapter; onRename: (c: Chapter) => void; onDelete: (c: Chapter) => void }) {
-  const items: MenuProps['items'] = [
-    { key: 'rename', label: '重命名' },
-    { key: 'delete', label: '删除', danger: true },
-  ]
-  if (!api.canEdit) {
-    // 只读(静态)模式:不显示重命名 / 删除入口。
-    return <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chapter.title}</span>
-  }
-  return (
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chapter.title}</span>
-      <Dropdown
-        trigger={['click']}
-        menu={{
-          items,
-          onClick: ({ key, domEvent }) => {
-            domEvent.stopPropagation()
-            if (key === 'rename') onRename(chapter)
-            else if (key === 'delete') onDelete(chapter)
-          },
-        }}
-      >
-        <span
-          role="button"
-          aria-label="章节操作"
-          className="cv-toc-actions"
-          onClick={(e) => e.stopPropagation()}
-          style={{ flex: '0 0 auto', cursor: 'pointer', opacity: 0.55, padding: '0 2px' }}
-        >
-          <MoreOutlined />
-        </span>
-      </Dropdown>
-    </span>
-  )
-}
 
 /** 按 volume 把(已排序的)章节分组:连续同卷合并为一个 SubMenu,null 卷为顶层项。 */
 function buildItems(
@@ -82,6 +45,8 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
   const [openKeys, setOpenKeys] = useState<string[]>([])
+  const sortMode = useStore((s) => s.sortMode)
+  const setManualOrder = useStore((s) => s.setManualOrder)
 
   // 新建 / 重命名 / 删除 弹窗状态(声明式 Modal,受控)。
   const [createOpen, setCreateOpen] = useState(false)
@@ -229,19 +194,31 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
           </Tooltip>
         ) : null}
       </div>
-      <Menu
-        mode="inline"
-        // 关掉 inline 子菜单展开/收起动画:展开变为同步布局,使下方「滚动当前章入视口」
-        // 在卷展开后读到的几何即时准确(否则动画期间高度为 0 / display:none,定位落点会错,
-        // 多卷时尤甚)。TOC 展开也更跟手。
-        motion={{ motionName: '' }}
-        items={items}
-        selectedKeys={activeId ? [activeId] : []}
-        openKeys={openKeys}
-        onOpenChange={(keys) => setOpenKeys(keys as string[])}
-        onClick={({ key }) => { if (!key.startsWith('vol:')) onJump(key) }}
-        style={{ borderInlineEnd: 'none' }}
-      />
+      {sortMode === 'manual' ? (
+        <TocTree
+          chapters={filtered}
+          activeId={activeId}
+          onJump={onJump}
+          onRename={openRename}
+          onDelete={(c) => setDeleteTarget(c)}
+          onReorder={setManualOrder}
+          draggable={!filter.trim()}
+        />
+      ) : (
+        <Menu
+          mode="inline"
+          // 关掉 inline 子菜单展开/收起动画:展开变为同步布局,使下方「滚动当前章入视口」
+          // 在卷展开后读到的几何即时准确(否则动画期间高度为 0 / display:none,定位落点会错,
+          // 多卷时尤甚)。TOC 展开也更跟手。
+          motion={{ motionName: '' }}
+          items={items}
+          selectedKeys={activeId ? [activeId] : []}
+          openKeys={openKeys}
+          onOpenChange={(keys) => setOpenKeys(keys as string[])}
+          onClick={({ key }) => { if (!key.startsWith('vol:')) onJump(key) }}
+          style={{ borderInlineEnd: 'none' }}
+        />
+      )}
 
       <Modal
         title="新建章节"

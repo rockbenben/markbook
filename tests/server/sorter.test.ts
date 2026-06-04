@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sortChapters } from '../../core/sorter'
+import { sortChapters, applyManualOrder } from '../../core/sorter'
 import type { Chapter } from '../../shared/types'
 
 const ch = (title: string, volume: string | null = null): Chapter => ({
@@ -108,5 +108,53 @@ describe('sortChapters global — 中文数字', () => {
   it('第十章 排在 第二章 之后', () => {
     const out = sortChapters([ch('第十章'), ch('第二章'), ch('第一章')], 'global')
     expect(out.map(c => c.title)).toEqual(['第一章', '第二章', '第十章'])
+  })
+})
+
+describe('applyManualOrder', () => {
+  it('卷内按 order 重排,卷间次序不变', () => {
+    const input = [ch('第1章', '卷一'), ch('第2章', '卷一'), ch('第3章', '卷一')]
+    const out = applyManualOrder(input, ['第3章', '第1章', '第2章'])
+    expect(out.map(c => c.title)).toEqual(['第3章', '第1章', '第2章'])
+  })
+
+  it('不在 order 中的章节(新文件)追加到所属卷末尾,保持自然序', () => {
+    const input = [ch('a', '卷一'), ch('b', '卷一'), ch('c', '卷一')]
+    const out = applyManualOrder(input, ['c', 'a']) // b 未列出
+    expect(out.map(c => c.title)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('order 含已不存在的 id 时忽略', () => {
+    const input = [ch('a', '卷一'), ch('b', '卷一')]
+    const out = applyManualOrder(input, ['ghost', 'b', 'a'])
+    expect(out.map(c => c.title)).toEqual(['b', 'a'])
+  })
+
+  it('空 order = 原序', () => {
+    const input = [ch('a', '卷一'), ch('b', '卷一')]
+    expect(applyManualOrder(input, []).map(c => c.title)).toEqual(['a', 'b'])
+  })
+
+  it('空 order 不按卷重组(单文件非连续重复标题安全)', () => {
+    // 同名卷非连续出现:空 order 应保持原始顺序,而非把同卷拉到一起
+    const input = [ch('a', 'V'), ch('b', 'W'), ch('c', 'V')]
+    expect(applyManualOrder(input, []).map(c => c.title)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('多卷:各卷独立重排,卷的首见顺序保留', () => {
+    const input = [
+      ch('a1', '卷一'), ch('a2', '卷一'),
+      ch('b1', '卷二'), ch('b2', '卷二'),
+    ]
+    const out = applyManualOrder(input, ['a2', 'a1', 'b2', 'b1'])
+    expect(out.map(c => `${c.volume}/${c.title}`)).toEqual([
+      '卷一/a2', '卷一/a1', '卷二/b2', '卷二/b1',
+    ])
+  })
+
+  it('根下文件(volume=null)自成一组,可独立重排', () => {
+    const input = [ch('x', null), ch('y', null), ch('z', '卷一')]
+    const out = applyManualOrder(input, ['y', 'x'])
+    expect(out.map(c => c.title)).toEqual(['y', 'x', 'z'])
   })
 })

@@ -569,3 +569,53 @@ describe('ChapterStore — 单文件重复标题稳定 id(BUG 2)', () => {
     expect(await store.readContent(secondId)).toContain('乙正文')
   })
 })
+
+describe('ChapterStore manual 排序', () => {
+  it('setManualOrder 后 list() 卷内按手动序;rebuild 后仍保留', async () => {
+    const store = new ChapterStore({ root, ignore: DEFAULT_IGNORE, sortMode: 'manual', titleSource: 'heading' })
+    await store.rebuild()
+    const ids = store.list().map(c => c.id)     // 自然序 [第2章, 第10章](同卷 vol2)
+    const reversed = [...ids].reverse()
+    store.setManualOrder(reversed)
+    expect(store.list().map(c => c.id)).toEqual(reversed)
+    await store.rebuild()
+    expect(store.list().map(c => c.id)).toEqual(reversed) // manualOrder 跨 rebuild 存活
+  })
+
+  it('非 manual 模式下 setManualOrder 不影响 list() 顺序', async () => {
+    const store = new ChapterStore({ root, ignore: DEFAULT_IGNORE, sortMode: 'global', titleSource: 'heading' })
+    await store.rebuild()
+    const natural = store.list().map(c => c.id)
+    store.setManualOrder([...natural].reverse())
+    expect(store.list().map(c => c.id)).toEqual(natural)
+  })
+
+  it('单文件模式:manual + setManualOrder 不改变阅读顺序(单文件不支持手动序)', async () => {
+    const file = path.join(root, 'book.md')
+    await writeFile(file, '# A\n\n# B\n\n# C\n')
+    const store = new ChapterStore({ root: file, ignore: DEFAULT_IGNORE, sortMode: 'manual', titleSource: 'heading' })
+    await store.rebuild()
+    const reading = store.list().map(c => c.id) // 文件内阅读序
+    store.setManualOrder([...reading].reverse())
+    expect(store.list().map(c => c.id)).toEqual(reading) // 仍为阅读序,resort 在单文件下空操作
+  })
+
+  it('切库:旧库的手动序不带到新库(setConfig 改 root 即清空)', async () => {
+    const store = new ChapterStore({ root, ignore: DEFAULT_IGNORE, sortMode: 'manual', titleSource: 'heading' })
+    await store.rebuild()
+    store.setManualOrder(store.list().map(c => c.id).reverse()) // 第10章, 第2章
+    expect(store.list().map(c => c.title)).toEqual(['第10章', '第2章'])
+    // 切到另一个目录(相同文件名 → 相同 id):不应继承旧库顺序
+    const root2 = await mkdtemp(path.join(os.tmpdir(), 'cv-store2-'))
+    try {
+      await mkdir(path.join(root2, 'vol2'), { recursive: true })
+      await writeFile(path.join(root2, 'vol2', '第10章.md'), '# 第10章')
+      await writeFile(path.join(root2, 'vol2', '第2章.md'), '# 第2章')
+      store.setConfig({ root: root2, ignore: DEFAULT_IGNORE, sortMode: 'manual', titleSource: 'heading' })
+      await store.rebuild()
+      expect(store.list().map(c => c.title)).toEqual(['第2章', '第10章']) // 自然(卷)序,未继承旧库的 reverse
+    } finally {
+      await rm(root2, { recursive: true, force: true })
+    }
+  })
+})

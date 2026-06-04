@@ -13,7 +13,7 @@ const DEFAULTS: AppConfig = {
   recentRoots: [],
 }
 
-const SORT_MODES = ['path', 'global', 'volume'] as const
+const SORT_MODES = ['path', 'global', 'volume', 'manual'] as const
 const TITLE_SOURCES = ['heading', 'filename'] as const
 
 /** 读取浏览器模式配置,缺省补默认值,坏字段回落默认(不抛)。 */

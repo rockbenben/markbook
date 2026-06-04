@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { scan } from './scanner'
 import { parseTitle, countWords } from '../core/parse'
-import { sortChapters } from '../core/sorter'
+import { sortChapters, applyManualOrder } from '../core/sorter'
 import { toRel, encodeId } from './paths'
 import { SearchIndex, hitDetail } from '../core/search'
 import { splitFileIntoSections, synthesizeTxtCreateHeading, renameSectionHeading } from '../core/splitFile'
@@ -34,6 +34,7 @@ function uniqueFileName(dir: string, base: string, ext: string): string {
 export class ChapterStore {
   private byId = new Map<string, Chapter>()
   private order: Chapter[] = []
+  private manualOrder: string[] = []
   private contentCache = new Map<string, { mtime: number; text: string }>()
   private index = new SearchIndex()
   // 单文件模式下:root 是文件;记录每个 section id 的字符范围与整文件 mtime。
@@ -54,7 +55,14 @@ export class ChapterStore {
     return next
   }
 
-  setConfig(cfg: AppConfig) { this.cfg = cfg }
+  setConfig(cfg: AppConfig) {
+    // 切库:手动序按书库隔离,旧库的内存手动序不能带到新库(id 可能因相对路径碰撞而误用)。
+    // 清空后由新库的客户端按其 localStorage 重新下发(空则保持自然序)。
+    if (cfg.root !== this.cfg.root) this.manualOrder = []
+    this.cfg = cfg
+  }
+  /** 设置手动顺序(权威副本在客户端 localStorage;此处为内存副本),并立即重排。 */
+  setManualOrder(order: string[]) { this.manualOrder = order; this.resort() }
   list(): Chapter[] { return [...this.order] }
   get(id: string): Chapter | undefined { return this.byId.get(id) }
   isSingleFile(): boolean { return this.singleFile }
@@ -134,7 +142,18 @@ export class ChapterStore {
     }
   }
 
-  private resort() { this.order = sortChapters([...this.byId.values()], this.cfg.sortMode) }
+  private resort() {
+    // 单文件:章节顺序即文件内物理阅读序,由 rebuildSingleFile 直接设定;手动序不适用,
+    // 否则 setManualOrder→resort 会重排 section,与 rebuild 的阅读序来回打架(导出/阅读错乱)。
+    if (this.singleFile) return
+    const all = [...this.byId.values()]
+    if (this.cfg.sortMode === 'manual') {
+      // 先取卷分组的稳定基序(卷自然序 + 卷内自然序),再按手动序重排卷内。
+      this.order = applyManualOrder(sortChapters(all, 'volume'), this.manualOrder)
+    } else {
+      this.order = sortChapters(all, this.cfg.sortMode)
+    }
+  }
 
   async rebuild(): Promise<void> {
     this.byId.clear()

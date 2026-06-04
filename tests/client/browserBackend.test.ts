@@ -143,4 +143,16 @@ describe('BrowserBackend editing (folder mode)', () => {
     await be.createChapter({ title: '丁' })
     expect(lastReset).toBeTruthy()
   })
+
+  it('setOrder 后 chapters() 跟随手动顺序(供导出)', async () => {
+    localStorage.setItem('cv-browser-config', JSON.stringify({ sortMode: 'manual', titleSource: 'heading' }))
+    const be = new BrowserBackend()
+    be.loadEntries(null, [
+      { path: 'a.md', content: '# A', mtime: 0 },
+      { path: 'b.md', content: '# B', mtime: 0 },
+    ])
+    const ids = (await be.chapters()).map(c => c.id)
+    await be.setOrder([ids[1], ids[0]])
+    expect((await be.chapters()).map(c => c.id)).toEqual([ids[1], ids[0]])
+  })
 })

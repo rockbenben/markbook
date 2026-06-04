@@ -348,6 +348,17 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     return reply.send(result.buffer)
   })
 
+  app.put<{ Body: { order?: unknown } }>('/api/order', async (req, reply) => {
+    const order = req.body?.order
+    if (!Array.isArray(order) || order.some((x) => typeof x !== 'string')) {
+      return reply.code(400).send({ error: 'invalid_field', message: '顺序必须是字符串数组' })
+    }
+    store.setManualOrder(order as string[])
+    // 轻量广播:仅重排,不发 reset(避免客户端清正文缓存 / 重置滚动位置)。
+    hub.broadcast({ type: 'reorder', order: order as string[] })
+    return { ok: true }
+  })
+
   app.get('/api/config', async () => cfg)
   app.put<{ Body: Partial<AppConfig> }>('/api/config', async (req, reply) => {
     const body = (req.body ?? {}) as Partial<AppConfig> & Record<string, unknown>
@@ -375,7 +386,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     }
 
     if (body.sortMode != null) {
-      if (body.sortMode !== 'path' && body.sortMode !== 'global' && body.sortMode !== 'volume') {
+      if (body.sortMode !== 'path' && body.sortMode !== 'global' && body.sortMode !== 'volume' && body.sortMode !== 'manual') {
         return reply.code(400).send({ error: 'invalid_field', message: '排序方式无效' })
       }
       patch.sortMode = body.sortMode

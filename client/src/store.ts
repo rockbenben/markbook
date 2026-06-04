@@ -3,6 +3,7 @@ import type { Chapter, WSMessage, SortMode } from '../../shared/types'
 import { insertNatural } from './natural'
 import { api } from './api'
 import type { WSStatus } from './wsClient'
+import { applyManualOrder } from '../../core/sorter'
 
 export type ViewMode = 'render' | 'source'
 
@@ -49,6 +50,17 @@ function loadBookmarks(): string[] {
   } catch {
     return []
   }
+}
+
+const ORDER_KEY = (root: string) => 'cv-order:' + root
+function loadManualOrder(root: string): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ORDER_KEY(root)) ?? '[]')
+    return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []
+  } catch { return [] }
+}
+function saveManualOrder(root: string, ids: string[]) {
+  try { localStorage.setItem(ORDER_KEY(root), JSON.stringify(ids)) } catch { /* 配额满等:忽略 */ }
 }
 
 type ContentEntry = { mtime: number; text: string }
@@ -112,6 +124,7 @@ export function applyMessage(list: Chapter[], msg: WSMessage): Chapter[] {
     case 'removed': return list.filter(c => c.id !== msg.id)
     case 'changed': return list.map(c => (c.id === msg.chapter.id ? msg.chapter : c))
     case 'reset': return msg.chapters
+    case 'reorder': return list   // 顺序变化不增删章节;重排由 apply 包装层按 manualOrder 完成
   }
 }
 
@@ -130,6 +143,9 @@ interface State {
   reading: ReadingPrefs                    // 阅读样式偏好(持久化到 localStorage)
   immersive: boolean                       // 沉浸阅读:隐藏页头/侧栏/页脚(持久化)
   bookmarks: string[]                      // 书签:章节 id 列表(持久化到 localStorage)
+  root: string
+  sortMode: SortMode
+  manualOrder: string[]
   setChapters: (c: Chapter[]) => void
   setWsStatus: (s: WSStatus) => void
   apply: (msg: WSMessage) => void
@@ -146,6 +162,8 @@ interface State {
   toggleImmersive: () => void
   toggleBookmark: (id: string) => void
   isBookmarked: (id: string) => boolean
+  applySortConfig: (root: string, sortMode: SortMode) => void
+  setManualOrder: (ids: string[]) => void
 }
 
 /** 随 chapters 一起推进正文缓存:reset 清空(剪枝陈旧项),removed 删除单项。 */
@@ -177,14 +195,27 @@ export const useStore = create<State>((set, get) => ({
   reading: loadReading(),
   immersive: loadImmersive(),
   bookmarks: loadBookmarks(),
-  setChapters: (chapters) => set({ chapters, loaded: true }),
+  root: '',
+  sortMode: 'path',
+  manualOrder: [],
+  setChapters: (chapters) => set((s) => ({
+    chapters: s.sortMode === 'manual' ? applyManualOrder(chapters, s.manualOrder) : chapters,
+    loaded: true,
+  })),
   setWsStatus: (wsStatus) => set({ wsStatus }),
   apply: (msg) => set((s) => {
     // reset 多为切库/全量重建:通知视图重读 root(用于命名空间化阅读位置 key)。
     if (msg.type === 'reset' && typeof window !== 'undefined') {
       window.dispatchEvent(new Event('cv:reset'))
     }
-    const chapters = applyMessage(s.chapters, msg)
+    let chapters = applyMessage(s.chapters, msg)
+    // reorder 携带新的手动序;其它增量沿用当前 manualOrder。
+    const manualOrder = msg.type === 'reorder' ? msg.order : s.manualOrder
+    // manual 模式下对增量统一重排,使 chapters 始终为显示序(added 新文件落所属卷末尾等)。
+    // 但 reset 例外:后端 list() 已是权威顺序(manual 模式已应用手动序),直接采用,不用本地
+    // (可能陈旧的)sortMode 二次重排——否则切换排序模式时,先到的 reset 会被旧 sortMode 误改回手动序。
+    // 切库/重连后若后端尚无手动序(如重启丢失),cv:reset → applySortConfig 会按本地序重排并回推。
+    if (s.sortMode === 'manual' && msg.type !== 'reset') chapters = applyManualOrder(chapters, manualOrder)
     const contentById = applyContent(s.contentById, msg)
     // reset/removed 会丢弃缓存条目:同步 LRU 顺序表,避免其指向已不存在的 id。
     if (msg.type === 'reset' || msg.type === 'removed') syncLru(contentById)
@@ -199,9 +230,9 @@ export const useStore = create<State>((set, get) => ({
     // 必须清空编辑草稿,否则旧章节的草稿会被下一次 startEditing(其它章节)误用,
     // 导致用旧内容覆盖另一个文件。
     if (s.editingId !== null && !chapters.some((c) => c.id === s.editingId)) {
-      return { chapters, contentById, loaded, editingId: null, editText: null, editBaseMtime: 0, ...nonce }
+      return { chapters, contentById, loaded, manualOrder, editingId: null, editText: null, editBaseMtime: 0, ...nonce }
     }
-    return { chapters, contentById, loaded, ...nonce }
+    return { chapters, contentById, loaded, manualOrder, ...nonce }
   }),
   ensureContent: (chapter, attempt = 0) => {
     const s = get()
@@ -237,6 +268,24 @@ export const useStore = create<State>((set, get) => ({
   },
   refreshContent: () => set((s) => { lruOrder.length = 0; return { contentById: {}, contentNonce: s.contentNonce + 1 } }),
   setActive: (activeChapterId) => set({ activeChapterId }),
+  applySortConfig: (root, sortMode) => {
+    const manualOrder = loadManualOrder(root)
+    set((s) => ({
+      root, sortMode, manualOrder,
+      chapters: sortMode === 'manual' ? applyManualOrder(s.chapters, manualOrder) : s.chapters,
+    }))
+    // 下发后端:使导出 / 其它标签页跟随(serverApi 走 PUT /api/order)。
+    // 仅当本地确有手动序时才下发:空序不下发——否则一个无本地序的客户端(空 localStorage)
+    // 会把别处已设的服务端手动序覆盖成自然序(共享状态被误清)。无序即「不主张」,让后端保持现状。
+    // Promise.resolve 包裹:兼容返回 promise(真实后端)与 undefined(测试 mock);.catch 吞网络失败。
+    if (sortMode === 'manual' && manualOrder.length) void Promise.resolve(api.setOrder(manualOrder)).catch(() => { /* 下发失败忽略 */ })
+  },
+  setManualOrder: (ids) => {
+    const root = get().root
+    saveManualOrder(root, ids)
+    set((s) => ({ manualOrder: ids, chapters: applyManualOrder(s.chapters, ids) }))
+    void Promise.resolve(api.setOrder(ids)).catch(() => { /* 下发失败忽略 */ })
+  },
   setGlobalView: (globalView) => { persist({ globalView }); set({ globalView }) },
   startEditing: (editingId) => set({ editingId, editText: null, editBaseMtime: 0 }),
   stopEditing: () => set({ editingId: null, editText: null, editBaseMtime: 0 }),

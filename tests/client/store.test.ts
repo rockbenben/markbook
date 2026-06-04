@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
-vi.mock('../../client/src/api', () => ({ api: { raw: vi.fn() } }))
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+vi.mock('../../client/src/api', () => ({ api: { raw: vi.fn(), setOrder: vi.fn() } }))
 import { applyMessage, useStore } from '../../client/src/store'
+import { api } from '../../client/src/api'
 import type { Chapter, WSMessage } from '../../shared/types'
 
 const ch = (id: string, title: string): Chapter =>
@@ -154,5 +155,69 @@ describe('apply 清理失效的编辑草稿', () => {
     expect(s.editingId).toBe('a')
     expect(s.editText).toBe('draft of A')
     expect(s.editBaseMtime).toBe(42)
+  })
+})
+
+const c = (id: string, volume: string | null = null) => ({
+  id, path: `${volume ?? ''}/${id}`, volume, title: id, ext: 'md' as const, mtime: 0, wordCount: 0,
+})
+
+describe('store manual 顺序', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useStore.setState({ chapters: [], sortMode: 'manual', manualOrder: [], root: 'lib', loaded: false })
+  })
+
+  it('setChapters 在 manual 模式按 manualOrder 重排', () => {
+    useStore.setState({ sortMode: 'manual', manualOrder: ['c', 'a', 'b'], root: 'lib' })
+    useStore.getState().setChapters([c('a'), c('b'), c('c')])
+    expect(useStore.getState().chapters.map(x => x.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('apply(reorder) 仅重排、不动 contentNonce', () => {
+    useStore.setState({ sortMode: 'manual', chapters: [c('a'), c('b'), c('c')], manualOrder: [], root: 'lib' })
+    const nonce0 = useStore.getState().contentNonce
+    useStore.getState().apply({ type: 'reorder', order: ['c', 'b', 'a'] })
+    expect(useStore.getState().chapters.map(x => x.id)).toEqual(['c', 'b', 'a'])
+    expect(useStore.getState().manualOrder).toEqual(['c', 'b', 'a'])
+    expect(useStore.getState().contentNonce).toBe(nonce0)
+  })
+
+  it('setManualOrder 持久化到 localStorage[cv-order:root] 并重排', () => {
+    useStore.setState({ sortMode: 'manual', chapters: [c('a'), c('b')], manualOrder: [], root: 'lib' })
+    useStore.getState().setManualOrder(['b', 'a'])
+    expect(useStore.getState().chapters.map(x => x.id)).toEqual(['b', 'a'])
+    expect(JSON.parse(localStorage.getItem('cv-order:lib')!)).toEqual(['b', 'a'])
+  })
+
+  it('manual 模式 added 落到所属卷末尾', () => {
+    useStore.setState({ sortMode: 'manual', chapters: [c('b', '卷一'), c('a', '卷一')], manualOrder: ['b', 'a'], root: 'lib' })
+    useStore.getState().apply({ type: 'added', chapter: c('z', '卷一'), index: 0 })
+    expect(useStore.getState().chapters.map(x => x.id)).toEqual(['b', 'a', 'z'])
+  })
+
+  it('reset 采用后端顺序,不用陈旧 manualOrder 重排(切换排序模式竞态)', () => {
+    // 切换 manual→path:后端先广播 reset(已是 path 序 [a,b,c]),此刻客户端 sortMode 仍陈旧为 manual。
+    // reset 必须采用后端顺序,而非用旧 manualOrder 改回 [c,b,a]。
+    useStore.setState({ sortMode: 'manual', manualOrder: ['c', 'b', 'a'], chapters: [], root: 'lib', editingId: null })
+    useStore.getState().apply({ type: 'reset', chapters: [c('a'), c('b'), c('c')] })
+    expect(useStore.getState().chapters.map(x => x.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('applySortConfig:无本地手动序时不下发空序(避免覆盖服务端共享序)', () => {
+    ;(api.setOrder as ReturnType<typeof vi.fn>).mockClear()
+    // 无 cv-order:lib
+    useStore.setState({ chapters: [c('a'), c('b')], sortMode: 'path', manualOrder: [], root: '' })
+    useStore.getState().applySortConfig('lib', 'manual')
+    expect(api.setOrder).not.toHaveBeenCalled()
+  })
+
+  it('applySortConfig:有本地手动序时下发并按之重排', () => {
+    ;(api.setOrder as ReturnType<typeof vi.fn>).mockClear()
+    localStorage.setItem('cv-order:lib', JSON.stringify(['b', 'a']))
+    useStore.setState({ chapters: [c('a'), c('b')], sortMode: 'path', manualOrder: [], root: '' })
+    useStore.getState().applySortConfig('lib', 'manual')
+    expect(api.setOrder).toHaveBeenCalledWith(['b', 'a'])
+    expect(useStore.getState().chapters.map(x => x.id)).toEqual(['b', 'a'])
   })
 })

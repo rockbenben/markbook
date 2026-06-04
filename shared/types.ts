@@ -11,7 +11,7 @@ export interface Chapter {
   wordCount: number
 }
 
-export type SortMode = 'path' | 'global' | 'volume'
+export type SortMode = 'path' | 'global' | 'volume' | 'manual'
 
 export interface AppConfig {
   root: string
@@ -26,6 +26,7 @@ export type WSMessage =
   | { type: 'removed'; id: string }
   | { type: 'changed'; chapter: Chapter }
   | { type: 'reset'; chapters: Chapter[] } // 根目录切换等全量场景
+  | { type: 'reorder'; order: string[] }   // 手动排序变更:仅重排,不增删章节
 
 export interface RawResponse { content: string; mtime: number }
 export interface SaveRequest { content: string; baseMtime: number }

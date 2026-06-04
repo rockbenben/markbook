@@ -56,6 +56,7 @@ export class BrowserBackend implements Backend {
   private fileName = ''
   private fileMtime = 0
 
+  private manualOrder: string[] = []
   private handlers: SubscribeHandlers | null = null
 
   // 持有可写句柄(目录或文件)才可编辑;上传降级只读。
@@ -72,11 +73,13 @@ export class BrowserBackend implements Backend {
     this.single = null; this.fileHandle = null
     this.dirHandle = handle
     this.entries = entries
+    this.manualOrder = []   // 新来源:丢弃旧库手动序(客户端会按新库重新下发);reload() 同库重读不经此处
     this.reloadFolder()
   }
   /** 单文件模式载入。fileHandle 为 null 即只读(上传)。 */
   private openSingle(fileHandle: FileHandleRW | null, content: string, name: string, mtime: number): void {
     this.dirHandle = null; this.entries = []
+    this.manualOrder = []
     this.fileHandle = fileHandle
     this.fileName = name; this.fileMtime = mtime
     this.single = new BrowserSingleFileStore()
@@ -84,7 +87,7 @@ export class BrowserBackend implements Backend {
   }
   private reloadFolder(): void {
     const cfg = loadBrowserConfig()
-    this.store.load(this.entries, { sortMode: cfg.sortMode, titleSource: cfg.titleSource })
+    this.store.load(this.entries, { sortMode: cfg.sortMode, titleSource: cfg.titleSource, manualOrder: this.manualOrder })
   }
   private broadcast(): void {
     this.handlers?.onMessage({ type: 'reset', chapters: this.active().list() })
@@ -115,6 +118,12 @@ export class BrowserBackend implements Backend {
     // 排序 / 标题来源仅影响目录模式;单文件保持阅读顺序、标题取自原文。
     if (!this.single && (patch.sortMode != null || patch.titleSource != null)) this.reloadFolder()
     return cfg
+  }
+
+  /** 设置手动顺序:更新内部 store 使导出 / 查询跟随。不广播(UI 由 store 乐观更新)。 */
+  async setOrder(order: string[]): Promise<void> {
+    this.manualOrder = order
+    if (!this.single) this.reloadFolder()
   }
 
   // ── 选择来源 ──

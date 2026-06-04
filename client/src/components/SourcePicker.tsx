@@ -31,6 +31,10 @@ export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
   async function afterOpen(ok: boolean | null | undefined) {
     if (!ok) return
     setChapters(await api.chapters())
+    // 静态模式切库不经 WS reset:手动派发 cv:reset,让 App 重新拉取 config 并按新库 root
+    // 同步 sortMode / 手动序(否则 store.root 仍是旧库,拖动会写错 localStorage 键);
+    // 同时让阅读位置按新库 root 重新命名空间化。
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('cv:reset'))
     refreshRecents()
     onOpened?.()
   }

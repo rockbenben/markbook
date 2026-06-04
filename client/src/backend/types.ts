@@ -67,6 +67,8 @@ export interface Backend {
   exportUrl(format: string, scope?: string): string | null
   /** 生成导出文件的 Blob 与文件名(无可导出章节返回 null)。浏览器模式在客户端构建。 */
   exportToBlob(format: string, scope?: string): Promise<{ blob: Blob; filename: string } | null>
+  /** 设置手动顺序(章节 id 数组)。服务端 PUT /api/order;浏览器更新内部 store 使导出跟随。 */
+  setOrder(order: string[]): Promise<void>
   /** 订阅实时更新;返回取消订阅函数。浏览器模式为「立即 open、无后续增量」。 */
   subscribe(handlers: SubscribeHandlers): () => void
 }

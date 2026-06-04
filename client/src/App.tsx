@@ -128,6 +128,17 @@ export default function App() {
   const algorithm = isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm
 
   useEffect(() => { api.chapters().then(setChapters).catch(() => {}) }, [setChapters])
+  // 同步排序配置:取后端 config 的 sortMode + root,载入该库手动顺序;切库 / 重连(reset)时重做。
+  useEffect(() => {
+    const sync = () => {
+      api.getConfig()
+        .then((cfg) => useStore.getState().applySortConfig(cfg.root, cfg.sortMode))
+        .catch(() => {})
+    }
+    sync()
+    window.addEventListener('cv:reset', sync)
+    return () => window.removeEventListener('cv:reset', sync)
+  }, [])
   // 刷新/重开后由本浏览器恢复上次来源:静态模式重新打开授权过的文件/夹;服务端模式把
   // 本浏览器记住的 root/排序/标题来源重新下发给服务端(服务端不持久化配置)。
   useEffect(() => {

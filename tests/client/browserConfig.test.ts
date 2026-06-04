@@ -32,4 +32,10 @@ describe('browserConfig', () => {
     saveBrowserConfig({ recentRoots: ['a', 2 as never, 'b'] })
     expect(loadBrowserConfig().recentRoots).toEqual(['a', 'b'])
   })
+
+  it('接受 manual 排序模式', () => {
+    const cfg = saveBrowserConfig({ sortMode: 'manual' })
+    expect(cfg.sortMode).toBe('manual')
+    expect(loadBrowserConfig().sortMode).toBe('manual')
+  })
 })
