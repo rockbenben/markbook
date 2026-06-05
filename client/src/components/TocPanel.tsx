@@ -153,6 +153,9 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
   //     不随我们的 openKeys 变化同步出现),故不能只在 effect 同步查一次——查不到就永远漏掉;
   // (2)即便挂载了,展开动画期间高度未定,几何不准(已用 Menu 的 motion 关掉动画规避)。
   // 用 MutationObserver 等高亮项真正出现/换位后再滚,并立即试一次(卷已展开的相邻步进即时命中)。
+  // 依赖只取 activeId:仅「导航」才强势定位。用户手动展开他卷 / 过滤展开卷会改 openKeys,但
+  // 不应把视口拽回当前章——而导航到收起卷的晚挂载场景,由上面 activeId 触发时挂上的 observer
+  // 持续兜底(成功前不断开),无需 openKeys 进依赖。
   useEffect(() => {
     if (!activeId) return
     const root = ref.current
@@ -172,7 +175,7 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
     mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
     tryScroll()
     return () => { done = true; mo.disconnect() }
-  }, [activeId, openKeys])
+  }, [activeId])
 
   return (
     <div ref={ref}>
