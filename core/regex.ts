@@ -9,9 +9,12 @@ export function escapeRegExp(s: string): string {
 export function countMatches(re: RegExp, text: string): number {
   re.lastIndex = 0
   let n = 0
-  while (re.exec(text) !== null) {
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
     n++
-    if (re.lastIndex === 0) break
+    // 零宽匹配(lastIndex 未前进,可发生在任意位置,如 \b、\B、(?=x))须手动步进,
+    // 否则在非 0 位置原地空匹配会死循环。与 String.replace 的全局空匹配步进语义一致。
+    if (m.index === re.lastIndex) re.lastIndex++
   }
   return n
 }
