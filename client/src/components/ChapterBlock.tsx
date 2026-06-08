@@ -21,7 +21,10 @@ function ChapterImg({ src, alt, chapterPath }: { src?: string; alt?: string; cha
     let revoked = false
     let obj: string | null = null
     api.asset(resolveRelPath(chapterPath, src)).then((u) => {
-      if (!revoked && u) { obj = u; setResolved(u) }
+      // 已卸载/已切 src:resolve 晚于 cleanup,cleanup 当时 obj 还是 null,
+      // 此处必须自行回收,否则这个 blob: URL(连同图片字节)永久泄漏。
+      if (revoked) { if (u && u.startsWith('blob:')) URL.revokeObjectURL(u); return }
+      if (u) { obj = u; setResolved(u) }
     }).catch(() => {})
     return () => { revoked = true; if (obj && obj.startsWith('blob:')) URL.revokeObjectURL(obj) }
   }, [src, chapterPath])
