@@ -433,21 +433,28 @@ export function synthesizeTxtCreateHeading(sections: Section[], title: string): 
   const top = entries[0]
   const dominant = top && top[1] > 0 ? top[0] : 'unknown'
 
+  const dash = (s: string) => `${s}\n${'-'.repeat(Math.max(3, [...s].length))}`
+  let block: string
   switch (dominant) {
     case 'cjk-chapter':
-      return `第${intToCjk(maxChapterNum + 1)}章 ${title}`
+      block = `第${intToCjk(maxChapterNum + 1)}章 ${title}`; break
     case 'setext-eq':
-      return `${title}\n${'='.repeat(Math.max(3, [...title].length))}`
+      block = `${title}\n${'='.repeat(Math.max(3, [...title].length))}`; break
     case 'setext-dash':
-      return `${title}\n${'-'.repeat(Math.max(3, [...title].length))}`
+      block = dash(title); break
     case 'cjk-enum':
-      return `${intToCjk(sections.length + 1)}、${title}`
+      block = `${intToCjk(sections.length + 1)}、${title}`; break
     case 'paren-enum':
-      return `（${intToCjk(sections.length + 1)}）${title}`
+      block = `（${intToCjk(sections.length + 1)}）${title}`; break
     default:
-      // 无法判断样式:回退 Setext(---)下划线,matchTxtHeading 必识别为章级标题。
-      return `${title}\n${'-'.repeat(Math.max(3, [...title].length))}`
+      // 无法判断样式:回退 Setext(---)下划线。
+      block = dash(title)
   }
+  // 产出的标题块必须能被重新切分识别,否则新章在 rebuild 时不显示(用户眼中新建失败)。
+  // Setext / 枚举无法表示含逗号等句中标点或过长的标题(passesHeadingGuard 会拒),
+  // 此时退到「第N章 」形式(passesNovelHeadingGuard 仅拒句号「。」,容忍逗号),确保新章可见。
+  if (splitFileIntoSections(block, 'txt')[0].level > 0) return block
+  return `第${intToCjk(maxChapterNum + 1)}章 ${title}`
 }
 
 /** 解析阿拉伯/全角/中文数字为整数(用于章号续接;尽力而为)。 */
@@ -499,21 +506,34 @@ export function renameSectionHeading(section: string, newTitle: string): string 
     return newTitle + rest
   }
 
-  // 以下为「整行即标题文本」的 txt 样式(第X章 / 枚举)。txt 章节的标题等于整行,
-  // 用户给的 newTitle 通常已是完整新标题。若 newTitle 本身就能被重新识别为标题
-  // (例如已含「第X章 」前缀或枚举符),直接整行替换;否则保留原行的编号/枚举前缀,
-  // 以确保改名后仍可被 matchTxtHeading 识别(不丢章)。
-  const cjkCh = headingLine.match(new RegExp(`^(\\s*[${BRACKET}]?\\s*(?:正文\\s*)?第[${NUM}]+[章节回话折][^\\S\\r\\n]*).*$`))
-  const cnEnum = headingLine.match(new RegExp(`^(\\s*[${CN_NUM}]+[、]).*$`))
-  const parenEnum = headingLine.match(new RegExp(`^(\\s*[（(]\\s*[${CN_NUM}0-9０-９]+\\s*[）)]).*$`))
-  if (cjkCh || cnEnum || parenEnum) {
-    // newTitle 自带可识别标记 → 整行替换。
-    if (matchTxtHeading(newTitle)) return newTitle + rest
-    // 否则保留原前缀,接上新文本。
-    const prefix = (cjkCh ?? cnEnum ?? parenEnum)![1]
-    return prefix + newTitle + rest
+  // 以下为「整行即标题文本」的 txt 样式。若 newTitle 自身已可被重新识别为标题,直接整行替换。
+  if (matchTxtHeading(newTitle)) return newTitle + rest
+
+  // 否则保留原标题行的「编号/标记前缀」,接上新文本。覆盖:第X章/节/回/话/折、中文枚举一、、
+  // 括号枚举（一）、Chapter/Section N、十进制 1 / 2.3、阿拉伯枚举 1、/1.。保留前缀天然保住原层级
+  // (第X章=章级;十进制=点分深度),避免改名改变层级而被吞并丢章。
+  const markerRe = new RegExp(
+    `^(\\s*[${BRACKET}]?\\s*(?:正文\\s*)?(?:` +
+      `第[${NUM}]+[章节回话折]` +                    // 第X章…
+      `|[${CN_NUM}]+[、]` +                            // 一、
+      `|[（(]\\s*[${CN_NUM}0-9０-９]+\\s*[）)]` +       // （一）
+      `|(?:Chapter|Ch\\.?|Section)\\s+\\d+` +          // Chapter N
+      `|\\d+(?:\\.\\d+)*` +                             // 1 / 2.3
+      `|[0-9０-９]+[、.．]` +                            // 1、 / 1.
+    `))[^\\S\\r\\n]*`,
+    'i',
+  )
+  const mk = headingLine.match(markerRe)
+  if (mk) {
+    const candidate = `${mk[1].replace(/\s+$/, '')} ${newTitle}`
+    if (matchTxtHeading(candidate)) return candidate + rest
   }
 
-  // 无法识别样式:整行替换为新标题(尽力保持可识别性由调用方/检测保证)。
+  // 兜底:原行确是被识别的标题但无法保留前缀(如裸「第108」无标题位)。裸「第X」恒为章级,
+  // 退到 Setext 下划线(章级)仍被识别,避免该节与上一节合并而丢章。非标题节(前言 / 无标题整篇)
+  // 保持整行替换。
+  if (matchTxtHeading(headingLine)) {
+    return `${newTitle}\n${'-'.repeat(Math.max(3, [...newTitle].length))}${rest}`
+  }
   return newTitle + rest
 }

@@ -84,6 +84,25 @@ describe('BrowserBackend editing (folder mode)', () => {
     expect(fs.files.get('乙改.txt')!.content).toBe('乙正文无标题')
   })
 
+  it('renameChapter:无标题文件在子目录(卷)内改名仍留在该子目录(不丢卷)', async () => {
+    localStorage.clear()
+    const seed = [
+      { path: '卷一/x.txt', content: '正文无标题', mtime: 100 },
+      { path: '卷一/y.txt', content: '另一篇', mtime: 200 },
+    ]
+    const fsInit = Object.fromEntries(seed.map((e) => [e.path, { content: e.content, mtime: e.mtime }]))
+    const fs = makeFs(fsInit)
+    const be = new BrowserBackend()
+    be.loadEntries(fs.root, seed.map((e): FileEntry => ({ ...e })))
+    await be.renameChapter(await idOf(be, '卷一/x.txt'), '序幕')
+    expect(fs.files.has('卷一/x.txt')).toBe(false)
+    expect(fs.files.get('卷一/序幕.txt')!.content).toBe('正文无标题')
+    expect(fs.files.has('序幕.txt')).toBe(false) // 没被移到根
+    const renamed = (await be.chapters()).find((c) => c.title === '序幕')!
+    expect(renamed.path).toBe('卷一/序幕.txt')
+    expect(renamed.volume).toBe('卷一')
+  })
+
   it('deleteChapter 删文件并移出列表', async () => {
     const { be, fs } = setup()
     await be.deleteChapter(await idOf(be, 'a.md'))

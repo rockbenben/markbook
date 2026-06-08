@@ -373,9 +373,11 @@ export class ChapterStore {
         return abs
       }
       // 无前导标题(文件名派生标题):按新标题重命名文件,保留扩展名。
+      // 必须留在原文件所属目录内,否则子目录(= 卷)里的章会被移到根目录而丢失卷分组(错位)。
       const ext = path.extname(c.path) || '.md'
-      const name = uniqueFileName(this.cfg.root, safeBaseName(trimmed), ext)
-      const newAbs = path.join(this.cfg.root, name)
+      const absDir = path.dirname(abs)
+      const name = uniqueFileName(absDir, safeBaseName(trimmed), ext)
+      const newAbs = path.join(absDir, name)
       await rename(abs, newAbs)
       return newAbs
     }

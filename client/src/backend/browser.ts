@@ -302,12 +302,20 @@ export class BrowserBackend implements Backend {
       const mtime = await writeFileAt(handle, rel, rewritten)
       e.content = rewritten; e.mtime = mtime
     } else {
-      const dot = rel.lastIndexOf('.')
-      const ext = dot > 0 ? rel.slice(dot) : '.md'
-      const name = uniqueName(this.topLevelNames(rel), safeBaseName(trimmed), ext)
-      const mtime = await writeFileAt(handle, name, e.content)
+      // 文件名派生标题:重命名文件,但必须留在原目录(= 卷)内,否则子目录里的章会被移到根而丢卷(错位)。
+      const slash = rel.lastIndexOf('/')
+      const dirPrefix = slash === -1 ? '' : rel.slice(0, slash + 1) // '卷一/' 或 ''
+      const base = rel.slice(slash + 1)
+      const dot = base.lastIndexOf('.')
+      const ext = dot > 0 ? base.slice(dot) : '.md'
+      // 同目录内的占用名(basename),供唯一化避免冲突。
+      const siblings = this.entries
+        .filter((x) => x.path !== rel && x.path.slice(0, x.path.lastIndexOf('/') + 1) === dirPrefix)
+        .map((x) => x.path.slice(dirPrefix.length))
+      const newRel = dirPrefix + uniqueName(siblings, safeBaseName(trimmed), ext)
+      const mtime = await writeFileAt(handle, newRel, e.content)
       await deleteEntryAt(handle, rel)
-      e.path = name; e.mtime = mtime
+      e.path = newRel; e.mtime = mtime
     }
     this.reloadFolder(); this.broadcast()
     return { ok: true }

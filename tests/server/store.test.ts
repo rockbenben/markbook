@@ -340,6 +340,23 @@ describe('ChapterStore — 章节管理(目录模式)', () => {
     expect(store.list().some(c => c.path === '改名后.md')).toBe(true)
   })
 
+  it('renameChapter(无标题文件,子目录/卷内)留在原子目录,不丢卷', async () => {
+    await mkdir(path.join(dir, '卷一'))
+    await writeFile(path.join(dir, '卷一', 'x.txt'), '正文无标题')
+    await writeFile(path.join(dir, '卷一', 'y.txt'), '另一篇')
+    const store = new ChapterStore({ root: dir, ignore: DEFAULT_IGNORE, sortMode: 'path', titleSource: 'heading' })
+    await store.rebuild()
+    const target = store.list().find(c => c.path === '卷一/x.txt')!
+    await store.renameChapter(target.id, '序幕')
+    await store.rebuild()
+    // 仍在 卷一/ 下,卷分组保留;未被移到根目录
+    expect(await readFile(path.join(dir, '卷一', '序幕.txt'), 'utf8')).toBe('正文无标题')
+    await expect(readFile(path.join(dir, '序幕.txt'), 'utf8')).rejects.toThrow()
+    const renamed = store.list().find(c => c.title === '序幕')!
+    expect(renamed.path).toBe('卷一/序幕.txt')
+    expect(renamed.volume).toBe('卷一')
+  })
+
   it('deleteChapter 从列表与磁盘移除文件', async () => {
     const store = new ChapterStore({ root: dir, ignore: DEFAULT_IGNORE, sortMode: 'global', titleSource: 'heading' })
     await store.rebuild()

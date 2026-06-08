@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitFileIntoSections } from '../../core/splitFile'
+import { splitFileIntoSections, renameSectionHeading, synthesizeTxtCreateHeading } from '../../core/splitFile'
 
 describe('splitFileIntoSections — md hierarchical', () => {
   const md = [
@@ -437,5 +437,76 @@ describe('splitFileIntoSections — preamble', () => {
     const md = '\n\n# 第一章\n正文'
     const secs = splitFileIntoSections(md, 'md')
     expect(secs.map(s => s.title)).toEqual(['第一章'])
+  })
+})
+
+describe('renameSectionHeading — 改名后标题须仍可识别(不丢章)', () => {
+  // 走单文件改名的真实回环:改写某节标题行 → 拼回整文件 → 重新切章 → 验章节数不减。
+  const roundTrip = (content: string, idx: number, newTitle: string) => {
+    const before = splitFileIntoSections(content, 'txt')
+    const sec = before[idx]
+    const newSection = renameSectionHeading(content.slice(sec.start, sec.end), newTitle)
+    const next = content.slice(0, sec.start) + newSection + content.slice(sec.end)
+    return { before, after: splitFileIntoSections(next, 'txt'), next }
+  }
+
+  it('裸「第108」(无标题位)改成普通标题:退到 Setext,仍保留为独立章', () => {
+    const { before, after } = roundTrip('第一章 开始\n正文一\n\n第108\n正文二\n', 1, '大结局')
+    expect(after.length).toBe(before.length)
+    expect(after[1].title).toBe('大结局')
+  })
+  it('「Chapter 5」改名:保留「Chapter 5」前缀,仍为独立章', () => {
+    const { before, after } = roundTrip('Chapter 1\nbody one\n\nChapter 5\nbody five\n', 1, 'The End')
+    expect(after.length).toBe(before.length)
+    expect(after[1].title).toBe('Chapter 5 The End')
+  })
+  it('十进制「2.3」改名:保留「2.3」前缀(层级=点分深度不变)', () => {
+    const { before, after } = roundTrip('1 引言\nbody\n\n2.3 方法\nbody2\n', 1, '小结')
+    expect(after.length).toBe(before.length)
+    expect(after[1].title).toBe('2.3 小结')
+  })
+  it('同层十进制「1/2/3」(非 flat)改中间一章:保留前缀,层级不变,不被吞并', () => {
+    // 关键回归:Setext 兜底会把层级压成 2,在 chapterLevel=1 的文档里会被上一章吞掉。
+    const { before, after } = roundTrip('1 引言\nb1\n2 方法\nb2\n3 结论\nb3\n', 1, '小结')
+    expect(after.length).toBe(before.length)
+    expect(after.map(s => s.title)).toEqual(['1 引言', '2 小结', '3 结论'])
+  })
+  it('第X章 改名保留「第X章」前缀;newTitle 自带可识别标记则整行替换', () => {
+    expect(roundTrip('第一章 甲\nb\n第二章 乙\nb2\n', 1, '风波').after[1].title).toBe('第二章 风波')
+    const r = roundTrip('第一章 开始\n正文一\n\n第108\n正文二\n', 1, '第109章 新名')
+    expect(r.after[1].title).toBe('第109章 新名')
+    expect(r.next).not.toContain('---')
+  })
+  it('原本非标题节(前言 / 无标题整篇)保持整行替换,不注入 Setext', () => {
+    expect(renameSectionHeading('随便一行正文\n更多正文\n', '新标题')).toBe('新标题\n更多正文\n')
+  })
+})
+
+describe('synthesizeTxtCreateHeading — 新建标题须可识别(不丢章)', () => {
+  const createRoundTrip = (content: string, title: string) => {
+    const sections = splitFileIntoSections(content, 'txt', 'novel')
+    const headingBlock = synthesizeTxtCreateHeading(sections, title)
+    const lead = content.length > 0 && !content.endsWith('\n') ? '\n\n' : (content.endsWith('\n\n') ? '' : '\n')
+    const next = content + lead + `${headingBlock}\n\n`
+    return { headingBlock, after: splitFileIntoSections(next, 'txt', 'novel') }
+  }
+
+  it('含逗号的标题在无标题/Setext 文件中退到「第N章」以保证新章可见', () => {
+    // Setext / 枚举走 passesHeadingGuard,会因句中逗号被拒 → 旧实现新章不显示。
+    const a = createRoundTrip('正文一\n第二行\n', '重逢，在十年后')
+    expect(a.after.some(s => s.title.includes('重逢，在十年后'))).toBe(true)
+    const b = createRoundTrip('章一\n====\n正文\n', '重逢，在十年后')
+    expect(b.after.some(s => s.title.includes('重逢，在十年后'))).toBe(true)
+  })
+  it('普通标题在 Setext 文件中仍用 Setext(不平白加「第N章」前缀)', () => {
+    expect(createRoundTrip('章一\n====\n正文\n', '再见').headingBlock).toBe('再见\n===')
+  })
+  it('普通标题在无标题文件中用 Setext 短横线', () => {
+    const { headingBlock, after } = createRoundTrip('正文一\n', '尾声章节')
+    expect(headingBlock).toBe('尾声章节\n----')
+    expect(after.some(s => s.title === '尾声章节')).toBe(true)
+  })
+  it('第X章 文件续接编号,不受影响', () => {
+    expect(createRoundTrip('第一章 开始\n正文\n', '续章').headingBlock).toBe('第二章 续章')
   })
 })
