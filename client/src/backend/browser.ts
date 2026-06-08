@@ -339,6 +339,9 @@ export class BrowserBackend implements Backend {
     try { re = new RegExp(useRegex ? find : escapeRegExp(find), 'g') } catch (err) {
       throw badRequest('正则表达式无效：' + (err as Error).message)
     }
+    // 字面模式下转义替换串里的 $:String.replace 会把 $$、$&、$` 等当特殊模式,
+    // 不转义会损坏含 $ 的字面替换(如 markdown 行间公式 $$)。正则模式保留 $ 语义。
+    const repl = useRegex ? replace : String(replace).replace(/\$/g, '$$$$')
     const chapters = this.active().list()
     if (dryRun) {
       let total = 0
@@ -357,7 +360,7 @@ export class BrowserBackend implements Backend {
       const total = countMatches(re, whole)
       if (total === 0) return { replaced: 0, total: 0 }
       re.lastIndex = 0
-      await this.commitSingle(whole.replace(re, replace))
+      await this.commitSingle(whole.replace(re, repl))
       return { replaced, total }
     }
     const handle = this.requireDir()
@@ -369,7 +372,7 @@ export class BrowserBackend implements Backend {
       const n = countMatches(re, e.content)
       if (n === 0) continue
       re.lastIndex = 0
-      const next = e.content.replace(re, replace)
+      const next = e.content.replace(re, repl)
       const mtime = await writeFileAt(handle, e.path, next)
       e.content = next; e.mtime = mtime
       replaced++; total += n

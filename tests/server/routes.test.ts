@@ -213,6 +213,49 @@ describe('routes', () => {
       await rm(dir, { recursive: true, force: true })
     }
   })
+  it('POST /api/replace 字面模式替换串里的 $ 按字面写入($$ 不被吞)', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'cv-replace-dollar-'))
+    try {
+      await writeFile(path.join(dir, '甲.md'), '# 甲\n公式 PLACEHOLDER 结束')
+      const app2 = await buildApp({ explicitRoot: dir, configFile: path.join(dir, '.cv.json') })
+      try {
+        // 字面替换为 markdown 行间公式 $$x$$:不转义会被 String.replace 吞成 $x$。
+        const run = await app2.inject({
+          method: 'POST', url: '/api/replace',
+          payload: { find: 'PLACEHOLDER', replace: '$$x$$' },
+        })
+        expect(run.statusCode).toBe(200)
+        const list = (await app2.inject({ method: 'GET', url: '/api/chapters' })).json()
+        const raw = (await app2.inject({ method: 'GET', url: `/api/chapters/${list[0].id}/raw` })).json()
+        expect(raw.content).toContain('公式 $$x$$ 结束')
+      } finally {
+        await app2.close()
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+  it('POST /api/replace 正则模式 $1 反向引用仍生效', async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'cv-replace-bref-'))
+    try {
+      await writeFile(path.join(dir, '甲.md'), '# 甲\nab')
+      const app2 = await buildApp({ explicitRoot: dir, configFile: path.join(dir, '.cv.json') })
+      try {
+        const run = await app2.inject({
+          method: 'POST', url: '/api/replace',
+          payload: { find: '(a)(b)', replace: '$2$1', useRegex: true },
+        })
+        expect(run.statusCode).toBe(200)
+        const list = (await app2.inject({ method: 'GET', url: '/api/chapters' })).json()
+        const raw = (await app2.inject({ method: 'GET', url: `/api/chapters/${list[0].id}/raw` })).json()
+        expect(raw.content).toContain('ba')
+      } finally {
+        await app2.close()
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
   it('POST /api/replace 某文件写入失败时,其余继续并返回 failed 计数', async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'cv-replace-fail-'))
     try {

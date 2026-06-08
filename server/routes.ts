@@ -176,6 +176,9 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     } catch (e) {
       return reply.code(400).send({ error: 'invalid_regex', message: '正则表达式无效：' + (e as Error).message })
     }
+    // 字面模式下,替换串里的 $ 必须转义:String.replace 会把 $$、$&、$` 等当特殊模式,
+    // 不转义会损坏含 $ 的字面替换(如 markdown 行间公式 $$ 被吞成 $)。正则模式保留 $ 反向引用语义。
+    const repl = useRegex ? replace : String(replace).replace(/\$/g, '$$$$')
     // 共用核心计数逻辑(零宽防死循环),保留按当前 pattern 计数的便捷闭包。
     const countMatches = (text: string): number => countMatchesIn(pattern, text)
 
@@ -205,7 +208,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
       const total = countMatches(whole)
       if (total === 0) return { replaced: 0, total: 0 }
       pattern.lastIndex = 0
-      const next = whole.replace(pattern, replace)
+      const next = whole.replace(pattern, repl)
       guard.mark(root, now())
       await writeFile(root, next, 'utf8')
       await store.rebuild()
@@ -227,7 +230,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
         const count = countMatches(fresh.content)
         if (count === 0) continue
         pattern.lastIndex = 0
-        const newContent = fresh.content.replace(pattern, replace)
+        const newContent = fresh.content.replace(pattern, repl)
         guard.mark(abs, now())
         await store.saveChapter(c.id, newContent, fresh.mtime)
         await store.upsertFile(abs) // 替换可能改到标题行,刷新 title/wordCount 元数据
