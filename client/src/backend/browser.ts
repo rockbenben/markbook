@@ -313,9 +313,13 @@ export class BrowserBackend implements Backend {
         .filter((x) => x.path !== rel && x.path.slice(0, x.path.lastIndexOf('/') + 1) === dirPrefix)
         .map((x) => x.path.slice(dirPrefix.length))
       const newRel = dirPrefix + uniqueName(siblings, safeBaseName(trimmed), ext)
-      const mtime = await writeFileAt(handle, newRel, e.content)
-      await deleteEntryAt(handle, rel)
-      e.path = newRel; e.mtime = mtime
+      // 新名净化后与原名相同(uniqueName 排除自身,故会返回原名):此时「写新 + 删旧」作用于
+      // 同一文件,会把刚写回的文件删掉(数据丢失)。同名即无操作,跳过 IO。
+      if (newRel !== rel) {
+        const mtime = await writeFileAt(handle, newRel, e.content)
+        await deleteEntryAt(handle, rel)
+        e.path = newRel; e.mtime = mtime
+      }
     }
     this.reloadFolder(); this.broadcast()
     return { ok: true }

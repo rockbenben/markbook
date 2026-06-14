@@ -477,8 +477,10 @@ describe('renameSectionHeading — 改名后标题须仍可识别(不丢章)', (
     expect(r.after[1].title).toBe('第109章 新名')
     expect(r.next).not.toContain('---')
   })
-  it('原本非标题节(前言 / 无标题整篇)保持整行替换,不注入 Setext', () => {
-    expect(renameSectionHeading('随便一行正文\n更多正文\n', '新标题')).toBe('新标题\n更多正文\n')
+  it('原本非标题节(前言 / 无标题整篇):无标题行可改,原样返回(不丢正文首行,也不注入 Setext)', () => {
+    // 旧行为是「整行替换」,会把正文首行(此处「随便一行正文」)静默删掉,且新名多半不可识别为
+    // 标题(改名无效)。无标题行可改写时应原样返回,保住正文。
+    expect(renameSectionHeading('随便一行正文\n更多正文\n', '新标题')).toBe('随便一行正文\n更多正文\n')
   })
 })
 

@@ -506,7 +506,12 @@ export function renameSectionHeading(section: string, newTitle: string): string 
     return newTitle + rest
   }
 
-  // 以下为「整行即标题文本」的 txt 样式。若 newTitle 自身已可被重新识别为标题,直接整行替换。
+  // 以下处理「整行即标题文本」的 txt 样式。前提:原行确为可识别标题。
+  // 若原行不是标题(前言 / 无标题整篇 / 恰好以数字开头的正文行),它就是正文——整行替换会
+  // 静默丢掉这行正文,且新名多半无法被识别为标题(改名实为无效又破坏)。故原样返回,不动内容。
+  if (matchTxtHeading(headingLine) === null) return section
+
+  // newTitle 自身已可被重新识别为标题:直接整行替换。
   if (matchTxtHeading(newTitle)) return newTitle + rest
 
   // 否则保留原标题行的「编号/标记前缀」,接上新文本。覆盖:第X章/节/回/话/折、中文枚举一、、
@@ -530,10 +535,6 @@ export function renameSectionHeading(section: string, newTitle: string): string 
   }
 
   // 兜底:原行确是被识别的标题但无法保留前缀(如裸「第108」无标题位)。裸「第X」恒为章级,
-  // 退到 Setext 下划线(章级)仍被识别,避免该节与上一节合并而丢章。非标题节(前言 / 无标题整篇)
-  // 保持整行替换。
-  if (matchTxtHeading(headingLine)) {
-    return `${newTitle}\n${'-'.repeat(Math.max(3, [...newTitle].length))}${rest}`
-  }
-  return newTitle + rest
+  // 退到 Setext 下划线(章级)仍被识别,避免该节与上一节合并而丢章。
+  return `${newTitle}\n${'-'.repeat(Math.max(3, [...newTitle].length))}${rest}`
 }

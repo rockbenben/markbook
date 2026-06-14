@@ -376,6 +376,9 @@ export class ChapterStore {
       // 必须留在原文件所属目录内,否则子目录(= 卷)里的章会被移到根目录而丢失卷分组(错位)。
       const ext = path.extname(c.path) || '.md'
       const absDir = path.dirname(abs)
+      // 新名净化后与原名相同:uniqueFileName 会因源文件自身仍在而误加「(2)」(rename 到 X (2)),
+      // 标题随之变成「X (2)」。同名即无操作,保持原文件不动。
+      if (safeBaseName(trimmed) + ext === path.basename(abs)) return abs
       const name = uniqueFileName(absDir, safeBaseName(trimmed), ext)
       const newAbs = path.join(absDir, name)
       await rename(abs, newAbs)
