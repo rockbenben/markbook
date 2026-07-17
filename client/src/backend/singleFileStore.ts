@@ -2,7 +2,7 @@
 // 与「返回改写后整文件内容」的突变(由上层写回磁盘 + 重新 load)。纯内存、可单测,等价于
 // 服务端 store 的单文件分支。
 import type { Chapter, RawResponse, SearchHit, ChapterExt } from '../../../shared/types'
-import { splitFileIntoSections, synthesizeTxtCreateHeading, renameSectionHeading } from '../../../core/splitFile'
+import { splitFileIntoSections, synthesizeTxtCreateHeading, renameSectionInWhole } from '../../../core/splitFile'
 import { SearchIndex, hitDetail } from '../../../core/search'
 import { encodeId } from '../../../core/id'
 import { countWords } from '../../../core/parse'
@@ -103,13 +103,14 @@ export class BrowserSingleFileStore {
     return whole + lead + `${headingBlock}\n\n`
   }
 
-  /** 改写某节标题行(保留样式/标记),返回新整文件内容。 */
+  /**
+   * 改写某节标题(保留样式/标记、验证仍可识别;无标题行时前插标题使改名生效),
+   * 返回新整文件内容。经 core/renameSectionInWhole 与服务端共用同一实现。
+   */
   renameSection(id: string, title: string): string {
     const r = this.ranges.get(id)
     if (!r) throw new Error(`unknown section id: ${id}`)
-    const section = this.content.slice(r.start, r.end)
-    const newSection = renameSectionHeading(section, title)
-    return this.content.slice(0, r.start) + newSection + this.content.slice(r.end)
+    return renameSectionInWhole(this.content, r.start, r.end, title, this.ext)
   }
 
   /** 删除某节区间,返回新整文件内容。 */

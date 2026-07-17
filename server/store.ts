@@ -1,13 +1,12 @@
-import { readFile, stat, writeFile, rename, rm } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
+import { readFile, stat, writeFile, rename, rm, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { scan } from './scanner'
 import { parseTitle, countWords } from '../core/parse'
 import { sortChapters, applyManualOrder } from '../core/sorter'
 import { toRel, encodeId } from './paths'
 import { SearchIndex, hitDetail } from '../core/search'
-import { splitFileIntoSections, synthesizeTxtCreateHeading, renameSectionHeading } from '../core/splitFile'
-import { safeBaseName, rewriteHeadingTitle } from '../core/naming'
+import { splitFileIntoSections, synthesizeTxtCreateHeading, renameSectionInWhole } from '../core/splitFile'
+import { safeBaseName, uniqueName, renameFileTarget, rewriteHeadingTitle } from '../core/naming'
 import { ConflictError } from './files'
 import type { AppConfig, Chapter, ChapterExt, WSMessage, SearchHit, RawResponse } from '../shared/types'
 
@@ -19,17 +18,6 @@ interface SectionRange { start: number; end: number }
  * 命中后 re-insert 推到末尾)。淘汰项再次读取时从磁盘重读(已支持)。
  */
 const MAX_FILE_CACHE = 256
-
-/** 在目录内为 base+ext 找一个未占用的文件名,必要时追加 ` (2)`、` (3)`… */
-function uniqueFileName(dir: string, base: string, ext: string): string {
-  let name = base + ext
-  let n = 2
-  while (existsSync(path.join(dir, name))) {
-    name = `${base} (${n})${ext}`
-    n++
-  }
-  return name
-}
 
 export class ChapterStore {
   private byId = new Map<string, Chapter>()
@@ -327,7 +315,7 @@ export class ChapterStore {
     return this.run(async () => {
       if (!this.singleFile) {
         const ext = '.md'
-        const name = uniqueFileName(this.cfg.root, safeBaseName(title), ext)
+        const name = uniqueName(await readdir(this.cfg.root), safeBaseName(title), ext)
         const abs = path.join(this.cfg.root, name)
         await writeFile(abs, `# ${title}\n\n`, 'utf8')
         return abs
@@ -376,22 +364,23 @@ export class ChapterStore {
       // 必须留在原文件所属目录内,否则子目录(= 卷)里的章会被移到根目录而丢失卷分组(错位)。
       const ext = path.extname(c.path) || '.md'
       const absDir = path.dirname(abs)
-      // 新名净化后与原名相同:uniqueFileName 会因源文件自身仍在而误加「(2)」(rename 到 X (2)),
-      // 标题随之变成「X (2)」。同名即无操作,保持原文件不动。
-      if (safeBaseName(trimmed) + ext === path.basename(abs)) return abs
-      const name = uniqueFileName(absDir, safeBaseName(trimmed), ext)
-      const newAbs = path.join(absDir, name)
+      const curName = path.basename(abs)
+      // 目标名由 core/renameFileTarget 统一计算:同名(净化后相同)即无操作;
+      // 兄弟文件按磁盘实测且排除自身,唯一化大小写不敏感,防止在不区分大小写的
+      // 文件系统上覆盖他章。仅大小写不同时 rename() 在各平台均为安全的原位改名。
+      const siblings = (await readdir(absDir)).filter((n) => n !== curName)
+      const target = renameFileTarget(curName, trimmed, ext, siblings)
+      if (target === null) return abs
+      const newAbs = path.join(absDir, target.name)
       await rename(abs, newAbs)
       return newAbs
     }
-    // 单文件:替换该 section 标题行的文本,保留原标题样式/标记。md 用 #…,
-    // .txt 保留第X章前缀 / Setext 下划线 / 枚举前缀,使改名后仍可被重新识别(BUG 2)。
+    // 单文件:经 core/renameSectionInWhole 统一改写(保留样式/标记、验证仍可识别、
+    // 无标题行时前插标题使改名生效;无法产出可识别标题时抛错,绝不静默丢章/破坏正文)。
     const range = this.sectionRanges.get(id)
     if (!range) throw new Error(`unknown section id: ${id}`)
     const whole = await readFile(this.cfg.root, 'utf8')
-    const section = whole.slice(range.start, range.end)
-    const newSection = renameSectionHeading(section, trimmed)
-    const next = whole.slice(0, range.start) + newSection + whole.slice(range.end)
+    const next = renameSectionInWhole(whole, range.start, range.end, trimmed, this.singleFileExt)
     await writeFile(this.cfg.root, next, 'utf8')
     return this.cfg.root
   }

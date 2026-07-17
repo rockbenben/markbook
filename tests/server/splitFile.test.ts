@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitFileIntoSections, renameSectionHeading, synthesizeTxtCreateHeading } from '../../core/splitFile'
+import { splitFileIntoSections, renameSectionHeading, renameSectionInWhole, synthesizeTxtCreateHeading } from '../../core/splitFile'
 
 describe('splitFileIntoSections — md hierarchical', () => {
   const md = [
@@ -445,7 +445,7 @@ describe('renameSectionHeading — 改名后标题须仍可识别(不丢章)', (
   const roundTrip = (content: string, idx: number, newTitle: string) => {
     const before = splitFileIntoSections(content, 'txt')
     const sec = before[idx]
-    const newSection = renameSectionHeading(content.slice(sec.start, sec.end), newTitle)
+    const newSection = renameSectionHeading(content.slice(sec.start, sec.end), newTitle, 'txt')
     const next = content.slice(0, sec.start) + newSection + content.slice(sec.end)
     return { before, after: splitFileIntoSections(next, 'txt'), next }
   }
@@ -477,10 +477,84 @@ describe('renameSectionHeading — 改名后标题须仍可识别(不丢章)', (
     expect(r.after[1].title).toBe('第109章 新名')
     expect(r.next).not.toContain('---')
   })
-  it('原本非标题节(前言 / 无标题整篇):无标题行可改,原样返回(不丢正文首行,也不注入 Setext)', () => {
-    // 旧行为是「整行替换」,会把正文首行(此处「随便一行正文」)静默删掉,且新名多半不可识别为
-    // 标题(改名无效)。无标题行可改写时应原样返回,保住正文。
-    expect(renameSectionHeading('随便一行正文\n更多正文\n', '新标题')).toBe('随便一行正文\n更多正文\n')
+  it('原本非标题节(前言 / 无标题整篇):无标题行可改,返回 null(由 renameSectionInWhole 前插标题兜底)', () => {
+    // 整行替换会把正文首行静默删掉;原地改写不可行时返回 null,不动内容。
+    expect(renameSectionHeading('随便一行正文\n更多正文\n', '新标题', 'txt')).toBeNull()
+  })
+
+  it('md 前言(无 # 标题行):返回 null,不整行替换', () => {
+    expect(renameSectionHeading('简介第一句。\n---\n\n', '导言', 'md')).toBeNull()
+  })
+})
+
+describe('renameSectionInWhole — 单文件改名统一入口(正文安全 + 改名生效)', () => {
+  const rename = (content: string, ext: 'md' | 'txt', idx: number, newTitle: string) => {
+    const before = splitFileIntoSections(content, ext)
+    const sec = before[idx]
+    const next = renameSectionInWhole(content, sec.start, sec.end, newTitle, ext)
+    return { before, after: splitFileIntoSections(next, ext), next }
+  }
+
+  it('md 前言首行是「句子。+ ---」(水平线,非 Setext 标题):正文保留,改名生效', () => {
+    const src = '简介第一句。\n---\n\n# 第一章\n正文\n'
+    const { before, after, next } = rename(src, 'md', 0, '导言')
+    expect(next).toContain('简介第一句。')
+    expect(after.length).toBe(before.length)
+    expect(after[0].title).toBe('导言')
+  })
+
+  it('md 前言首行形如 txt 标题(「一、缘起」):不按 txt 规则整行替换,正文保留,改名生效', () => {
+    const src = '一、缘起\n前言正文\n\n# 第一章\n正文\n'
+    const { before, after, next } = rename(src, 'md', 0, '导言')
+    expect(next).toContain('一、缘起')
+    expect(after.length).toBe(before.length)
+    expect(after[0].title).toBe('导言')
+  })
+
+  it('txt 裸「第108」改成含逗号标题(Setext 会被护栏拒):不丢章,标题含新名', () => {
+    const src = '第一章 开始\n正文一\n\n第108\n正文二\n'
+    const { before, after, next } = rename(src, 'txt', 1, '他走了,再见')
+    expect(after.length).toBe(before.length)
+    expect(after[1].title).toContain('他走了,再见')
+    expect(next).toContain('正文二')
+  })
+
+  it('txt Setext 章改成超长标题(任何样式都无法被识别):抛错拒绝,而非静默丢章', () => {
+    const long = '这是一个远远超过四十个字符长度上限的标题'.repeat(3)
+    const src = '旧章名\n------\n正文甲\n\n次章名\n------\n正文乙\n'
+    const sec = splitFileIntoSections(src, 'txt')[0]
+    expect(() => renameSectionInWhole(src, sec.start, sec.end, long, 'txt')).toThrow()
+  })
+
+  it('txt Setext 章改成含逗号标题(Setext 护栏拒,退到第N章形式):不丢章', () => {
+    const src = '旧章名\n------\n正文甲\n\n次章名\n------\n正文乙\n'
+    const { before, after, next } = rename(src, 'txt', 0, '走了,再见')
+    expect(after.length).toBe(before.length)
+    expect(after[0].title).toContain('走了,再见')
+    expect(next).toContain('正文甲')
+  })
+
+  it('txt 无标题整篇:前插标题使改名生效,正文首行保留', () => {
+    const src = '我的第一行\n我的第二行\n'
+    const { after, next } = rename(src, 'txt', 0, '小说标题')
+    expect(next).toContain('我的第一行')
+    expect(after[0].title).toContain('小说标题')
+  })
+
+  it('txt 前言(首个标题之前):前插标题使改名生效,不动前言正文,后续章不变', () => {
+    const src = '前言第一行\n前言第二行\n\n第一章 开始\n正文\n'
+    const { before, after, next } = rename(src, 'txt', 0, '导言')
+    expect(next).toContain('前言第一行')
+    expect(after.length).toBe(before.length)
+    expect(after[0].title).toContain('导言')
+    expect(after[1].title).toBe('第一章 开始')
+  })
+
+  it('md 有 # 标题:照常改写标题文本(保留标记)', () => {
+    const src = '# 第一章\n正文\n\n# 第二章\n正文二\n'
+    const { after, next } = rename(src, 'md', 1, '终章')
+    expect(after[1].title).toBe('终章')
+    expect(next).toContain('# 终章')
   })
 })
 

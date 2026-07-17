@@ -13,7 +13,7 @@ import {
 } from './fsAccess'
 import { loadBrowserConfig, saveBrowserConfig } from './browserConfig'
 import { loadRecents, saveRecent, removeRecent, saveUploadSnapshot, loadUploadSnapshot, clearUploadSnapshot } from './idbHandle'
-import { safeBaseName, uniqueName, rewriteHeadingTitle } from '../../../core/naming'
+import { safeBaseName, uniqueName, renameFileTarget, rewriteHeadingTitle } from '../../../core/naming'
 import { escapeRegExp, countMatches } from '../../../core/regex'
 import { tidyText, type TidyOptions } from '../../../core/tidy'
 
@@ -308,14 +308,16 @@ export class BrowserBackend implements Backend {
       const base = rel.slice(slash + 1)
       const dot = base.lastIndexOf('.')
       const ext = dot > 0 ? base.slice(dot) : '.md'
-      // 同目录内的占用名(basename),供唯一化避免冲突。
+      // 同目录内的占用名(basename,排除自身),供唯一化避免冲突。
       const siblings = this.entries
         .filter((x) => x.path !== rel && x.path.slice(0, x.path.lastIndexOf('/') + 1) === dirPrefix)
         .map((x) => x.path.slice(dirPrefix.length))
-      const newRel = dirPrefix + uniqueName(siblings, safeBaseName(trimmed), ext)
-      // 新名净化后与原名相同(uniqueName 排除自身,故会返回原名):此时「写新 + 删旧」作用于
-      // 同一文件,会把刚写回的文件删掉(数据丢失)。同名即无操作,跳过 IO。
-      if (newRel !== rel) {
+      // 目标名由 core/renameFileTarget 统一计算(与服务端同一实现)。null(净化后同名)或
+      // caseOnly(仅大小写不同)都跳过 IO:FSA 按名字打开文件,在不区分大小写的文件系统
+      // (Windows/macOS)上「写新 + 删旧」会作用于同一底层文件,把刚写回的文件删掉(数据丢失)。
+      const target = renameFileTarget(base, trimmed, ext, siblings)
+      if (target !== null && !target.caseOnly) {
+        const newRel = dirPrefix + target.name
         const mtime = await writeFileAt(handle, newRel, e.content)
         await deleteEntryAt(handle, rel)
         e.path = newRel; e.mtime = mtime

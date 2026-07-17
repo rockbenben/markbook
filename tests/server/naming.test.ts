@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { safeBaseName, uniqueName, rewriteHeadingTitle } from '../../core/naming'
+import { safeBaseName, uniqueName, renameFileTarget, rewriteHeadingTitle } from '../../core/naming'
 
 describe('safeBaseName', () => {
   it('去掉路径非法字符并压空白', () => {
@@ -21,6 +21,30 @@ describe('uniqueName', () => {
   })
   it('接受 Set 或数组', () => {
     expect(uniqueName(new Set(['x.txt']), 'x', '.txt')).toBe('x (2).txt')
+  })
+  it('大小写不同视为冲突(Windows/macOS 文件系统不区分大小写)', () => {
+    expect(uniqueName(['b.txt'], 'B', '.txt')).toBe('B (2).txt')
+    expect(uniqueName(['NOTES.md'], 'notes', '.md')).toBe('notes (2).md')
+  })
+})
+
+describe('renameFileTarget — 改名目标文件名(server 与浏览器端共用)', () => {
+  it('与原名完全相同 → null(无操作)', () => {
+    expect(renameFileTarget('b.txt', 'b', '.txt', [])).toBeNull()
+    // 净化后撞回原名(带非法字符)。
+    expect(renameFileTarget('b.txt', 'b?', '.txt', [])).toBeNull()
+  })
+  it('仅大小写不同 → caseOnly(调用方按后端能力决定是否执行)', () => {
+    expect(renameFileTarget('notes.txt', 'Notes', '.txt', [])).toEqual({ name: 'Notes.txt', caseOnly: true })
+  })
+  it('与兄弟文件大小写冲突 → 唯一化「(2)」,不覆盖他章', () => {
+    expect(renameFileTarget('a.txt', 'B', '.txt', ['b.txt'])).toEqual({ name: 'B (2).txt', caseOnly: false })
+  })
+  it('仅大小写不同但与另一真实兄弟冲突(区分大小写盘上两文件并存)→ 唯一化且非 caseOnly', () => {
+    expect(renameFileTarget('notes.txt', 'NOTES', '.txt', ['NOTES.txt'])).toEqual({ name: 'NOTES (2).txt', caseOnly: false })
+  })
+  it('无冲突 → 直接用净化名', () => {
+    expect(renameFileTarget('a.txt', 'c', '.txt', ['b.txt'])).toEqual({ name: 'c.txt', caseOnly: false })
   })
 })
 

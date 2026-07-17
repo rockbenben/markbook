@@ -480,61 +480,140 @@ function parseArabicOrCjk(s: string): number {
   return total + section + current
 }
 
+// 标题行的「编号/标记前缀」:第X章/节/回/话/折、中文枚举一、、括号枚举（一）、
+// Chapter/Section N、十进制 1 / 2.3、阿拉伯枚举 1、/1.。
+const MARKER_RE = new RegExp(
+  `^(\\s*[${BRACKET}]?\\s*(?:正文\\s*)?(?:` +
+    `第[${NUM}]+[章节回话折]` +                    // 第X章…
+    `|[${CN_NUM}]+[、]` +                            // 一、
+    `|[（(]\\s*[${CN_NUM}0-9０-９]+\\s*[）)]` +       // （一）
+    `|(?:Chapter|Ch\\.?|Section)\\s+\\d+` +          // Chapter N
+    `|\\d+(?:\\.\\d+)*` +                             // 1 / 2.3
+    `|[0-9０-９]+[、.．]` +                            // 1、 / 1.
+  `))[^\\S\\r\\n]*`,
+  'i',
+)
+
 /**
- * 为 .txt / .md 单文件 rename 改写某 section 的标题行,保留其原有样式/标记。
+ * 为 .txt / .md 单文件 rename 原地改写某 section 的标题行,保留其原有样式/标记。
  *  - md `#` 标题:保留「#… 」前缀,替换文本。
  *  - 第X章 旧名 → 第X章 新名(保留「第X章 」前缀)。
- *  - Setext:替换文本行,保留下划线。
+ *  - Setext(文本行须通过标题护栏,否则它是正文而非标题):替换文本行,保留下划线。
  *  - 枚举(一、/（一）):保留枚举前缀,替换文本。
- *  - 其它:整行替换为新标题。
- * 入参 section 为该节自 [start,end) 的完整切片;返回改写后的整节文本。
+ * 每个候选改写都必须能被重新切分识别(否则该章 rebuild 时会并入上一章而「丢章」)。
+ * 原地改写不可行(节首不是标题行,或任何候选都不可识别)时返回 null,由
+ * renameSectionInWhole 决定兜底(前插标题 / 合成标题块 / 拒绝),绝不破坏正文。
+ * ext 须为「有效切分模式」:md 文件无任何 # 标题时按 txt 规则切分,改写也须按 txt 处理。
  */
-export function renameSectionHeading(section: string, newTitle: string): string {
+export function renameSectionHeading(section: string, newTitle: string, ext: ChapterExt): string | null {
   const nlIdx = section.indexOf('\n')
   const headingLine = nlIdx === -1 ? section : section.slice(0, nlIdx)
   const rest = nlIdx === -1 ? '' : section.slice(nlIdx)
 
-  // md `#` 标题:保留 #… 标记。
-  const md = headingLine.match(/^(\s{0,3}#{1,6}\s+).*$/)
-  if (md) return md[1] + newTitle + rest
+  if (ext === 'md') {
+    // md 只认 `#` 标题;无则该节没有标题行(前言/无标题整篇),不可原地改写。
+    const md = headingLine.match(/^(\s{0,3}#{1,6}\s+).*$/)
+    return md ? md[1] + newTitle + rest : null
+  }
 
-  // Setext:下一行是 === / ---,仅替换文本行,保留下划线。
+  // txt:候选须重新可识别(与切分同一套规则),防丢章。
+  if (matchTxtHeading(headingLine) !== null) {
+    // 语义标题(第X章/枚举/Chapter N…;若有紧随下划线,它只是装饰,保留在 rest 中)。
+    // newTitle 自身已可被重新识别为标题:直接整行替换。
+    if (matchTxtHeading(newTitle)) return newTitle + rest
+    // 保留原标题行的「编号/标记前缀」,接上新文本。保留前缀天然保住原层级
+    // (第X章=章级;十进制=点分深度),避免改名改变层级而被吞并丢章。
+    const mk = headingLine.match(MARKER_RE)
+    if (mk) {
+      const candidate = `${mk[1].replace(/\s+$/, '')} ${newTitle}`
+      if (matchTxtHeading(candidate)) return candidate + rest
+    }
+    // 无标题位(裸「第108」等):退到 Setext 下划线(章级),但须通过护栏(含逗号/过长会被拒)。
+    if (passesHeadingGuard(newTitle)) {
+      return `${newTitle}\n${'-'.repeat(Math.max(3, [...newTitle].length))}${rest}`
+    }
+    return null
+  }
+
+  // Setext 标题:文本行 + === / --- 下划线,且文本行通过护栏(否则是「正文 + 水平线」,
+  // 整行替换会静默丢正文——正是本函数要杜绝的数据破坏)。
   const restLines = rest.startsWith('\n') ? rest.slice(1) : rest
   const nextNl = restLines.indexOf('\n')
-  const underlineCand = nextNl === -1 ? restLines : restLines.slice(0, nextNl)
-  if (SETEXT_EQ_RE.test(underlineCand) || SETEXT_DASH_RE.test(underlineCand)) {
-    return newTitle + rest
+  const underline = nextNl === -1 ? restLines : restLines.slice(0, nextNl)
+  const selfIsUnderline = SETEXT_EQ_RE.test(headingLine) || SETEXT_DASH_RE.test(headingLine)
+  if (
+    !selfIsUnderline &&
+    (SETEXT_EQ_RE.test(underline) || SETEXT_DASH_RE.test(underline)) &&
+    passesHeadingGuard(headingLine)
+  ) {
+    // 新文本也须过护栏,否则下划线悬空、标题不再被识别。
+    if (passesHeadingGuard(newTitle) || matchTxtHeading(newTitle)) return newTitle + rest
+    return null
   }
 
-  // 以下处理「整行即标题文本」的 txt 样式。前提:原行确为可识别标题。
-  // 若原行不是标题(前言 / 无标题整篇 / 恰好以数字开头的正文行),它就是正文——整行替换会
-  // 静默丢掉这行正文,且新名多半无法被识别为标题(改名实为无效又破坏)。故原样返回,不动内容。
-  if (matchTxtHeading(headingLine) === null) return section
+  // 节首不是标题行(前言 / 无标题整篇 / 恰好形似标题的正文行)。
+  return null
+}
 
-  // newTitle 自身已可被重新识别为标题:直接整行替换。
-  if (matchTxtHeading(newTitle)) return newTitle + rest
+/** 节首标题块的长度(标题行 + 被消费的 Setext/装饰下划线);节首不是标题行返回 null。 */
+function sectionHeadingSpan(section: string, ext: ChapterExt): number | null {
+  const nlIdx = section.indexOf('\n')
+  const headingLine = nlIdx === -1 ? section : section.slice(0, nlIdx)
+  if (ext === 'md') return MD_HEADING_RE.test(headingLine) ? headingLine.length : null
+  if (SETEXT_EQ_RE.test(headingLine) || SETEXT_DASH_RE.test(headingLine)) return null
+  const rest = nlIdx === -1 ? '' : section.slice(nlIdx + 1)
+  const nextNl = rest.indexOf('\n')
+  const underline = nextNl === -1 ? rest : rest.slice(0, nextNl)
+  const hasUnderline = SETEXT_EQ_RE.test(underline) || SETEXT_DASH_RE.test(underline)
+  const underlineSpan = hasUnderline ? 1 + underline.length : 0
+  if (matchTxtHeading(headingLine) !== null) return headingLine.length + underlineSpan
+  if (hasUnderline && passesHeadingGuard(headingLine)) return headingLine.length + underlineSpan
+  return null
+}
 
-  // 否则保留原标题行的「编号/标记前缀」,接上新文本。覆盖:第X章/节/回/话/折、中文枚举一、、
-  // 括号枚举（一）、Chapter/Section N、十进制 1 / 2.3、阿拉伯枚举 1、/1.。保留前缀天然保住原层级
-  // (第X章=章级;十进制=点分深度),避免改名改变层级而被吞并丢章。
-  const markerRe = new RegExp(
-    `^(\\s*[${BRACKET}]?\\s*(?:正文\\s*)?(?:` +
-      `第[${NUM}]+[章节回话折]` +                    // 第X章…
-      `|[${CN_NUM}]+[、]` +                            // 一、
-      `|[（(]\\s*[${CN_NUM}0-9０-９]+\\s*[）)]` +       // （一）
-      `|(?:Chapter|Ch\\.?|Section)\\s+\\d+` +          // Chapter N
-      `|\\d+(?:\\.\\d+)*` +                             // 1 / 2.3
-      `|[0-9０-９]+[、.．]` +                            // 1、 / 1.
-    `))[^\\S\\r\\n]*`,
-    'i',
-  )
-  const mk = headingLine.match(markerRe)
-  if (mk) {
-    const candidate = `${mk[1].replace(/\s+$/, '')} ${newTitle}`
-    if (matchTxtHeading(candidate)) return candidate + rest
+/**
+ * 单文件模式改名的统一入口(server 与浏览器端共用):在整文件 whole 中改写
+ * [start,end) 节的标题为 newTitle,返回新的整文件内容。分三种情形,都不动正文:
+ *  1. 原地改写(renameSectionHeading)可行:保留原样式/标记替换标题文本。
+ *  2. 节首有标题行但任何保留样式的改写都不可识别:用合成标题块(synthesizeTxtCreateHeading,
+ *     与新建章同一套「必须可被重新识别」的保证)整体替换标题行。
+ *  3. 节首没有标题行(前言 / 无标题整篇):前插一个标题块使改名生效,正文原样保留。
+ * 改写后重新切分校验章节数不变;无法产出可识别标题(如超长标题)时抛错拒绝,绝不静默丢章。
+ */
+export function renameSectionInWhole(
+  whole: string,
+  start: number,
+  end: number,
+  newTitle: string,
+  ext: ChapterExt,
+): string {
+  // 与切分同一套「有效扩展名」规则:md 无任何 # 标题时按 txt 处理。
+  const effExt: ChapterExt = ext === 'md' && !hasMdHeading(whole) ? 'txt' : ext
+  const section = whole.slice(start, end)
+  const renamed = renameSectionHeading(section, newTitle, effExt)
+
+  let next: string
+  if (renamed !== null) {
+    next = whole.slice(0, start) + renamed + whole.slice(end)
+  } else {
+    const block = effExt === 'md'
+      ? `${whole.match(/^\s{0,3}(#{1,6})\s+/m)?.[1] ?? '##'} ${newTitle}`
+      : synthesizeTxtCreateHeading(splitFileIntoSections(whole, ext), newTitle)
+    const span = sectionHeadingSpan(section, effExt)
+    next = span === null
+      // 节首无标题行:前插标题块,正文(含原首行)原样保留。
+      ? whole.slice(0, start) + `${block}\n\n` + whole.slice(start)
+      // 有标题行但保留样式不可行:整体替换标题行(含其下划线)。
+      : whole.slice(0, start) + block + whole.slice(start + span)
   }
 
-  // 兜底:原行确是被识别的标题但无法保留前缀(如裸「第108」无标题位)。裸「第X」恒为章级,
-  // 退到 Setext 下划线(章级)仍被识别,避免该节与上一节合并而丢章。
-  return `${newTitle}\n${'-'.repeat(Math.max(3, [...newTitle].length))}${rest}`
+  // 最终校验:改写后章节数不变,且被改的节(仍从 start 开始)以可识别标题开头
+  // (level > 0)。否则新标题不被识别 —— 该章会并入上一章(丢章)或退化为无题前言
+  // (标题静默失效),一律抛错拒绝。
+  const after = splitFileIntoSections(next, ext)
+  const renamedSec = after.find((s) => s.start === start)
+  if (after.length !== splitFileIntoSections(whole, ext).length || !renamedSec || renamedSec.level <= 0) {
+    throw new Error('新标题无法被识别为章节标题(过长或含句读),请缩短后重试')
+  }
+  return next
 }

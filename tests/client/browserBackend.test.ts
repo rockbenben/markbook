@@ -1,36 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { BrowserBackend } from '../../client/src/backend/browser'
 import type { FileEntry } from '../../client/src/backend/browserStore'
-
-// 带 mtime 的可写目录 mock(content + mtime 都记录,便于校验保存与冲突)。
-function makeFs(initial: Record<string, { content: string; mtime: number }> = {}) {
-  const files = new Map(Object.entries(initial))
-  let clock = 9000
-  function dir(prefix: string): any {
-    const full = (n: string) => (prefix ? `${prefix}/${n}` : n)
-    return {
-      kind: 'directory',
-      async getDirectoryHandle(n: string) { return dir(full(n)) },
-      async getFileHandle(n: string, opts?: { create?: boolean }) {
-        const p = full(n)
-        if (!files.has(p)) {
-          if (!opts?.create) throw new Error('NotFound: ' + p)
-          files.set(p, { content: '', mtime: ++clock })
-        }
-        return {
-          kind: 'file',
-          async getFile() { return { lastModified: files.get(p)!.mtime } },
-          async createWritable() {
-            let buf = ''
-            return { async write(d: string) { buf += d }, async close() { files.set(p, { content: buf, mtime: ++clock }) } }
-          },
-        }
-      },
-      async removeEntry(n: string) { files.delete(full(n)) },
-    }
-  }
-  return { root: dir(''), files }
-}
+import { makeFs, idOf } from './helpers/fsMock'
 
 const SEED: { path: string; content: string; mtime: number }[] = [
   { path: 'a.md', content: '# 甲\n正文', mtime: 100 },
@@ -45,9 +16,6 @@ function setup() {
   be.loadEntries(fs.root, SEED.map((e): FileEntry => ({ ...e })))
   return { be, fs }
 }
-
-const idOf = async (be: BrowserBackend, path: string) =>
-  (await be.chapters()).find((c) => c.path === path)!.id
 
 beforeEach(() => localStorage.clear())
 

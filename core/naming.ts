@@ -6,13 +6,41 @@ export function safeBaseName(title: string): string {
   return cleaned || 'chapter-' + Date.now()
 }
 
-/** 在「已占用名字」集合里为 base+ext 找一个不冲突的名字,必要时追加 ` (2)`、` (3)`…… */
+/** 文件名等同判断:大小写不敏感(Windows/macOS 文件系统不区分大小写,统一按不敏感处理防覆盖)。 */
+export function sameNameCI(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase()
+}
+
+/**
+ * 在「已占用名字」集合里为 base+ext 找一个不冲突的名字,必要时追加 ` (2)`、` (3)`……
+ * 冲突判断大小写不敏感:在不区分大小写的文件系统上,写 `B.txt` 会覆盖已有的 `b.txt`。
+ */
 export function uniqueName(taken: Iterable<string>, base: string, ext: string): string {
-  const set = taken instanceof Set ? taken : new Set(taken)
+  const set = new Set<string>()
+  for (const t of taken) set.add(t.toLowerCase())
   let name = base + ext
   let n = 2
-  while (set.has(name)) { name = `${base} (${n})${ext}`; n++ }
+  while (set.has(name.toLowerCase())) { name = `${base} (${n})${ext}`; n++ }
   return name
+}
+
+/**
+ * 计算「按新标题重命名文件」的目标文件名(server 与浏览器端共用同一实现,防两端漂移):
+ *  - 净化后与原名完全相同 → null(无操作,避免 uniqueName 把自身当冲突而误加「(2)」)。
+ *  - 返回 { name, caseOnly }:name 已在 siblings(调用方须排除自身)中唯一化;
+ *    caseOnly 表示与原名仅大小写不同 —— 服务端 rename() 各平台均可安全原位改名,
+ *    浏览器端 FSA 的「写新 + 删旧」在不区分大小写的盘上作用于同一文件,应跳过 IO。
+ */
+export function renameFileTarget(
+  currentName: string,
+  title: string,
+  ext: string,
+  siblings: Iterable<string>,
+): { name: string; caseOnly: boolean } | null {
+  const base = safeBaseName(title)
+  if (base + ext === currentName) return null
+  const name = uniqueName(siblings, base, ext)
+  return { name, caseOnly: sameNameCI(name, currentName) }
 }
 
 /**

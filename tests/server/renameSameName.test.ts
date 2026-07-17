@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile, readdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -21,5 +21,15 @@ describe('renameChapter:重命名到同名(净化后相同)', () => {
     await store.renameChapter(c.id, 'notes')
     expect(existsSync(path.join(root, 'notes.txt'))).toBe(true)
     expect(existsSync(path.join(root, 'notes (2).txt'))).toBe(false)
+  })
+
+  it('仅改大小写:真实重命名为新大小写,不产生「(2)」(不误把自身当冲突)', async () => {
+    const store = new ChapterStore({ root, ignore: DEFAULT_IGNORE, sortMode: 'path', titleSource: 'heading' })
+    await store.rebuild()
+    const c = store.list().find((x) => x.title === 'notes')!
+    await store.renameChapter(c.id, 'Notes')
+    const names = await readdir(root)
+    expect(names).toContain('Notes.txt')
+    expect(names.some((n) => n.includes('(2)'))).toBe(false)
   })
 })
