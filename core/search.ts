@@ -1,4 +1,4 @@
-import FlexSearch from 'flexsearch'
+import { Index } from 'flexsearch'
 import type { SearchHit } from '../shared/types'
 
 const segmenter = new Intl.Segmenter('zh', { granularity: 'word' })
@@ -14,8 +14,8 @@ export function tokenize(text: string): string[] {
 
 /**
  * 把已分词文本拼成 FlexSearch 可索引的字符串。FlexSearch 用 `tokenize: 'forward'`
- * 做前缀匹配,`encode: false` 让它不再二次切词/改写,直接吃我们用 Intl.Segmenter
- * 切好的、以空格分隔的词序列(中文才能正确按词检索)。
+ * 做前缀匹配,自定义 `encode`(按空格切分)让它不再二次切词/改写,直接吃我们用
+ * Intl.Segmenter 切好的、以空格分隔的词序列(中文才能正确按词检索)。
  */
 function indexable(text: string): string {
   return tokenize(text).join(' ')
@@ -29,8 +29,8 @@ export class SearchIndex {
   private titleIdx = this.newIndex()
   private bodyIdx = this.newIndex()
 
-  private newIndex(): FlexSearch.Index {
-    return new FlexSearch.Index({ tokenize: 'forward', encode: false })
+  private newIndex(): Index {
+    return new Index({ tokenize: 'forward', encode: (text) => text.split(' ').filter(Boolean) })
   }
 
   add(id: string, title: string, content: string): void {
@@ -58,9 +58,9 @@ export class SearchIndex {
     // 标题命中先入(权重更高),正文命中其后;用 Set 去重并保留首次出现顺序。
     const ranked: string[] = []
     const seen = new Set<string>()
-    const collect = (idx: FlexSearch.Index) => {
+    const collect = (idx: Index) => {
       for (const t of terms) {
-        for (const id of idx.search(t, limit) as string[]) {
+        for (const id of idx.search(t, { limit }) as string[]) {
           if (!seen.has(id)) { seen.add(id); ranked.push(id) }
         }
       }

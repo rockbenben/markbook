@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -43,9 +43,17 @@ export default defineConfig(({ mode }) => {
   build: { outDir: isStatic ? '../dist/static' : '../dist/client', emptyOutDir: true },
   test: {
     globals: true,
-    environment: 'node',
-    include: ['../tests/**/*.test.ts', '../tests/**/*.test.tsx'],
-    environmentMatchGlobs: [['../tests/client/**', 'jsdom']],
+    // Vitest 4 移除了 environmentMatchGlobs,改用 projects 按目录区分运行环境。
+    projects: [
+      {
+        extends: true,
+        test: { name: 'server', environment: 'node', include: ['../tests/server/**/*.test.ts'] },
+      },
+      {
+        extends: true,
+        test: { name: 'client', environment: 'jsdom', include: ['../tests/client/**/*.test.ts', '../tests/client/**/*.test.tsx'] },
+      },
+    ],
   },
   }
 })
