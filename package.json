@@ -29,6 +29,9 @@
   "bin": {
     "markbook": "dist/server/index.js"
   },
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "dev:client": "vite",
     "dev:server": "tsx watch server/index.ts",

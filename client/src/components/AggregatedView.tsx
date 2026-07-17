@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
-import { Button, Empty, Flex, Spin, Typography } from 'antd'
+import { Button, Empty, Flex, Spin } from 'antd'
 import GithubSlugger from 'github-slugger'
 import { useStore } from '../store'
 import { api } from '../api'
 import { highlightInContainer, clearHighlight } from '../highlight'
 import { cleanBody, extractHeadings } from '../../../core/render'
+import { BrandMark } from './BrandMark'
 import { ChapterItem } from './ChapterItem'
 import { ChapterOutline } from './ChapterOutline'
 import { SourcePicker } from './SourcePicker'
@@ -209,9 +210,15 @@ export function AggregatedView() {
     return (
       <Flex className="main" style={readingStyle} align="center" justify="center">
         {api.mode === 'browser' ? (
-          // 静态模式:首屏即可选择 / 上传 / 切换最近来源(无需先进设置),并说明隐私。
-          <div style={{ width: '100%', maxWidth: 460, padding: 24 }}>
-            <Typography.Title level={4} style={{ marginTop: 0 }}>打开你的文本</Typography.Title>
+          // 静态模式首屏 = 品牌主视觉(封面书标 + 题旨)+ 来源选择:
+          // 打开即知道这是什么、为何可信、下一步做什么。
+          <div className="mb-hero" style={{ overflowY: 'auto', maxHeight: '100%' }}>
+            <BrandMark size={72} />
+            <div className="mb-hero-name">文集</div>
+            <div className="mb-hero-latin">MARKBOOK</div>
+            <p className="mb-hero-tagline">散落文本，聚合成书</p>
+            <p className="mb-hero-sub">把一文件夹 .md / .txt，或一个大文件，读成一本连续、可搜索、可导出的书。</p>
+            <div className="mb-hero-stitch" aria-hidden />
             <SourcePicker />
           </div>
         ) : (

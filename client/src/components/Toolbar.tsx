@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Divider, Empty, Flex, List, Popover, Segmented, Space, Tooltip, Typography } from 'antd'
+import { Button, Divider, Empty, Flex, List, Popover, Segmented, Space, Tooltip } from 'antd'
 import {
   BookOutlined, BulbOutlined, CloseOutlined, EllipsisOutlined, FullscreenOutlined, GithubOutlined, LeftOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, ReloadOutlined, RightOutlined,
@@ -8,6 +8,7 @@ import {
 import { useStore, type ViewMode } from '../store'
 import { api } from '../api'
 import { useChapterNav } from '../useChapterNav'
+import { BrandMark } from './BrandMark'
 import { SearchBox } from './SearchBox'
 import { ReplaceModal } from './ReplaceModal'
 import { TidyModal } from './TidyModal'
@@ -124,13 +125,11 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
           aria-label="目录"
         />
       </Tooltip>
-      <Typography.Text
-        strong
-        ellipsis
-        style={{ whiteSpace: 'nowrap', flex: '0 1 auto', minWidth: 0 }}
-      >
-        MarkBook · 文集
-      </Typography.Text>
+      <span className="mb-brand" title="MarkBook · 文集">
+        <BrandMark size={20} />
+        <span className="mb-brand-cn">文集</span>
+        <span className="mb-brand-en">MarkBook</span>
+      </span>
       {/* 品牌(目录+书名)与「查找·导航」之间用分隔线分组,避免标题紧贴搜索框显得像表单标签。 */}
       <Divider type="vertical" style={{ margin: 0, height: '1.4em' }} />
       <SearchBox />

@@ -13,18 +13,22 @@ export default defineConfig(({ mode }) => {
     // PWA 仅用于静态部署:可安装、离线可读、重复访问秒开;autoUpdate 避免卡旧版本。
     ...(isStatic ? [VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'MarkBook · 文集',
         short_name: 'MarkBook',
-        description: '本地 Markdown / 纯文本聚合阅读器,纯本地、零上传',
+        description: '散落文本,聚合成书 —— 本地 Markdown / 纯文本聚合阅读器,纯本地、零上传',
         lang: 'zh-CN',
-        theme_color: '#1677ff',
+        theme_color: '#2c5a80',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: './',
         scope: './',
-        icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+        icons: [
+          { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg}'],

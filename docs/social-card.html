@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>MarkBook social card source</title>
+<!--
+  社交分享卡片源文件(1200×630)。改动后重新生成 PNG:
+    chrome --headless=new --screenshot=client/public/social-card.png \
+      --window-size=1200,630 --hide-scrollbars docs/social-card.html
+  设计:线装书 —— 右侧「散页被一根线缝进书里」讲产品故事,左侧题旨大字。
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --paper: #f5eedc;
+    --ink: #26221c;
+    --seal: #be3b2a;
+  }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    background: linear-gradient(160deg, #2d5078 0%, #1e3b59 62%, #172e46 100%);
+    font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, serif;
+    color: var(--paper);
+    position: relative;
+  }
+  /* 布面织纹:极淡的横向罗纹,给磁青底一点材质 */
+  body::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(to bottom, rgba(245, 238, 220, 0.028) 0 1px, transparent 1px 7px);
+  }
+  .left {
+    position: absolute;
+    left: 76px; top: 0; bottom: 0;
+    width: 600px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .brandrow { display: flex; align-items: center; gap: 16px; }
+  .brandrow svg { display: block; }
+  .brand-cn { font-size: 30px; font-weight: 600; letter-spacing: 0.18em; }
+  .brand-en {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 15px; letter-spacing: 0.34em; opacity: 0.62; padding-top: 4px;
+  }
+  h1 {
+    margin-top: 42px;
+    font-size: 76px;
+    font-weight: 700;
+    line-height: 1.28;
+    letter-spacing: 0.05em;
+  }
+  h1 .comma { opacity: 0.55; }
+  .sub {
+    margin-top: 26px;
+    font-size: 22px;
+    line-height: 1.7;
+    opacity: 0.82;
+    letter-spacing: 0.04em;
+  }
+  .foot {
+    margin-top: 46px;
+    display: flex; align-items: center; gap: 18px;
+    font-size: 18px; letter-spacing: 0.06em;
+  }
+  .chip {
+    border: 1.5px solid rgba(245, 238, 220, 0.55);
+    border-radius: 999px;
+    padding: 7px 18px;
+  }
+  .url { opacity: 0.66; font-family: Georgia, serif; letter-spacing: 0.03em; }
+  .art { position: absolute; right: 0; top: 0; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="brandrow">
+      <!-- 书标(与 icon.svg 同造型) -->
+      <svg width="52" height="52" viewBox="0 0 512 512">
+        <rect width="512" height="512" rx="96" fill="#24466a" stroke="rgba(245,238,220,.5)" stroke-width="10"/>
+        <g stroke="#f2ead6" stroke-width="11" stroke-linecap="round" opacity="0.92">
+          <line x1="428" y1="64" x2="428" y2="448"/>
+          <line x1="428" y1="96" x2="486" y2="96"/>
+          <line x1="428" y1="203" x2="486" y2="203"/>
+          <line x1="428" y1="309" x2="486" y2="309"/>
+          <line x1="428" y1="416" x2="486" y2="416"/>
+        </g>
+        <g fill="#f2ead6">
+          <circle cx="428" cy="96" r="15"/><circle cx="428" cy="203" r="15"/>
+          <circle cx="428" cy="309" r="15"/><circle cx="428" cy="416" r="15"/>
+        </g>
+        <rect x="78" y="58" width="136" height="322" rx="10" fill="#f5eedc"/>
+        <rect x="86" y="66" width="120" height="306" rx="6" fill="none" stroke="#26221c" stroke-opacity="0.22" stroke-width="4"/>
+        <text x="146" y="196" font-size="104" text-anchor="middle" fill="#26221c">文</text>
+        <text x="146" y="330" font-size="104" text-anchor="middle" fill="#26221c">集</text>
+      </svg>
+      <span class="brand-cn">文集</span>
+      <span class="brand-en">MARKBOOK</span>
+    </div>
+    <h1>散落文本<span class="comma">，</span><br/>聚合成书<span class="comma">。</span></h1>
+    <div class="sub">本地 Markdown / TXT 聚合阅读器<br/>识别章卷 · 全文搜索 · 就地编辑 · 导出 EPUB</div>
+    <div class="foot">
+      <span class="chip">纯本地 · 零上传</span>
+      <span class="url">markbook.newzone.top</span>
+    </div>
+  </div>
+
+  <!-- 右侧:散页 → 一根线 → 装订成书 -->
+  <svg class="art" width="480" height="630" viewBox="0 0 480 630">
+    <defs>
+      <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#faf5e8"/><stop offset="1" stop-color="#efe6cf"/>
+      </linearGradient>
+      <filter id="sh" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0a1826" flood-opacity="0.45"/>
+      </filter>
+    </defs>
+
+    <!-- 散页 ×3(带淡文本行,各自倾斜) -->
+    <g filter="url(#sh)" transform="translate(96 44) rotate(-11)">
+      <rect width="120" height="156" rx="8" fill="url(#pg)"/>
+      <g stroke="#26221c" stroke-opacity="0.30" stroke-width="5" stroke-linecap="round">
+        <line x1="20" y1="34" x2="100" y2="34"/><line x1="20" y1="58" x2="88" y2="58"/>
+        <line x1="20" y1="82" x2="100" y2="82"/><line x1="20" y1="106" x2="72" y2="106"/>
+      </g>
+    </g>
+    <g filter="url(#sh)" transform="translate(268 24) rotate(8)">
+      <rect width="112" height="146" rx="8" fill="url(#pg)"/>
+      <g stroke="#26221c" stroke-opacity="0.30" stroke-width="5" stroke-linecap="round">
+        <line x1="18" y1="32" x2="94" y2="32"/><line x1="18" y1="56" x2="80" y2="56"/>
+        <line x1="18" y1="80" x2="94" y2="80"/>
+      </g>
+    </g>
+    <g filter="url(#sh)" transform="translate(196 150) rotate(-3)">
+      <rect width="104" height="136" rx="8" fill="url(#pg)"/>
+      <g stroke="#26221c" stroke-opacity="0.30" stroke-width="5" stroke-linecap="round">
+        <line x1="16" y1="30" x2="88" y2="30"/><line x1="16" y1="54" x2="74" y2="54"/>
+        <line x1="16" y1="78" x2="88" y2="78"/>
+      </g>
+    </g>
+
+    <!-- 线:从散页间穿行,缝进书脊(虚线 + 线结) -->
+    <path d="M 128 96 C 220 130, 300 84, 330 120 S 300 240, 268 292 S 348 356, 372 420"
+          fill="none" stroke="#f2ead6" stroke-width="5" stroke-linecap="round"
+          stroke-dasharray="20 14" opacity="0.9"/>
+    <circle cx="128" cy="96" r="7" fill="#f2ead6"/>
+    <circle cx="330" cy="120" r="7" fill="#f2ead6"/>
+    <circle cx="268" cy="292" r="7" fill="#f2ead6"/>
+
+    <!-- 装订成册的书(叠页 + 封面 + 题签 + 订线 + 藏书印) -->
+    <g filter="url(#sh)">
+      <rect x="120" y="416" width="252" height="182" rx="10" fill="#e8dfc8" transform="translate(14 -12)"/>
+      <rect x="120" y="416" width="252" height="182" rx="10" fill="#efe6cf" transform="translate(7 -6)"/>
+      <rect x="120" y="416" width="252" height="182" rx="10" fill="#24466a" stroke="rgba(245,238,220,.4)" stroke-width="3"/>
+      <!-- 订线(右缘) -->
+      <g stroke="#f2ead6" stroke-width="5" stroke-linecap="round" opacity="0.95">
+        <line x1="344" y1="432" x2="344" y2="582"/>
+        <line x1="344" y1="448" x2="372" y2="448"/>
+        <line x1="344" y1="492" x2="372" y2="492"/>
+        <line x1="344" y1="536" x2="372" y2="536"/>
+        <line x1="344" y1="574" x2="372" y2="574"/>
+      </g>
+      <g fill="#f2ead6">
+        <circle cx="344" cy="448" r="6"/><circle cx="344" cy="492" r="6"/>
+        <circle cx="344" cy="536" r="6"/><circle cx="344" cy="574" r="6"/>
+      </g>
+      <!-- 题签 -->
+      <rect x="142" y="432" width="52" height="122" rx="5" fill="#f5eedc"/>
+      <text x="168" y="482" font-size="38" text-anchor="middle" fill="#26221c">文</text>
+      <text x="168" y="534" font-size="38" text-anchor="middle" fill="#26221c">集</text>
+      <!-- 藏书印 -->
+      <rect x="286" y="546" width="40" height="40" rx="5" fill="#be3b2a"/>
+      <text x="306" y="576" font-size="26" text-anchor="middle" fill="#f5eedc">藏</text>
+    </g>
+  </svg>
+</body>
+</html>

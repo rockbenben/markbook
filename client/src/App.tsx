@@ -14,6 +14,10 @@ const ChapterEditor = lazy(() => import('./components/ChapterEditor').then((m) =
 
 const { Header, Sider, Content, Footer } = Layout
 
+// 品牌主色:磁青(线装书书衣的靛蓝)。暗色下提亮保证对比度。
+const BRAND_TOKEN = { colorPrimary: '#2c5a80', colorInfo: '#2c5a80', colorLink: '#2c5a80' }
+const BRAND_TOKEN_DARK = { colorPrimary: '#8fb6db', colorInfo: '#8fb6db', colorLink: '#8fb6db' }
+
 // 「背景」预设 → antd 主题 token,覆盖全套背景色(Layout/容器/浮层)与文字色,作用于整个应用。
 const PAPER_THEME: Record<string, { token: Record<string, string>; dark: boolean }> = {
   default: { token: {}, dark: false },
@@ -177,7 +181,7 @@ export default function App() {
     <ConfigProvider
       theme={{
         algorithm,
-        token: paper.token,
+        token: { ...(isDark ? BRAND_TOKEN_DARK : BRAND_TOKEN), ...paper.token },
         components: {
           // Header/Footer 跟随主题背景,而非 antd 默认的深色页头。
           Layout: { headerBg: 'transparent', footerBg: 'transparent' },
@@ -201,7 +205,9 @@ export default function App() {
                 collapsed={tocCollapsed}
                 trigger={null}
                 onBreakpoint={(broken) => setTocCollapsed(broken)}
-                style={{ overflowY: 'auto', height: '100%', borderRight: tocCollapsed ? 'none' : '1px solid var(--border)' }}
+                /* 右缘订线(书脊缝线,.mb-spine)替代实线边框;折叠为 0 宽时不渲染纹样 */
+                className={tocCollapsed ? undefined : 'mb-spine'}
+                style={{ overflowY: 'auto', height: '100%' }}
               >
                 <TocPanel
                   chapters={chapters}
@@ -249,7 +255,8 @@ export default function App() {
         {/* 当前章操作浮钮:书签(只读也可用)叠在编辑铅笔之上,二者都作用于「当前章」。 */}
         {!immersive && !editingId && activeId ? (
           <FloatButton
-            icon={bookmarks.includes(activeId) ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+            /* 书签即「藏书印」:用朱砂红,是全局唯一的强调红。 */
+            icon={bookmarks.includes(activeId) ? <StarFilled style={{ color: 'var(--mb-seal)' }} /> : <StarOutlined />}
             tooltip={bookmarks.includes(activeId) ? '取消书签' : '为当前章加书签'}
             // 可编辑时编辑铅笔在底(默认 48),书签叠其上;只读时书签独占底位。
             style={{ right: 24, insetBlockEnd: api.canEdit ? 104 : 48 }}

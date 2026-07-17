@@ -1,11 +1,18 @@
+/* ── 品牌:线装书 ──
+   把散落文本「装订成书」是产品本体,视觉系统亦取自线装书的材质:
+   磁青(书衣靛蓝)为主色、宣纸与墨为纸面、朱砂(藏书印)为唯一强调红,
+   订线(缝线纹样)作为贯穿章节分隔 / 目录书脊 / logo 的签名元素。 */
 :root {
   --bg: #ffffff; --fg: #1a1a1a; --muted: #666; --border: #e2e2e2;
-  --accent: #3b6ea5; --panel: #f7f7f7; --active: #e8f0fb;
+  --accent: #2c5a80; --panel: #f7f7f7; --active: #e7eef5;
+  --mb-seal: #be3b2a;          /* 朱砂:书签(藏书印)专用,不作他用 */
+  --mb-display: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, Georgia, serif;
   --scrollbar-thumb: rgba(0, 0, 0, 0.22); --scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
 }
 [data-theme='dark'] {
   --bg: #1e1e1e; --fg: #e6e6e6; --muted: #999; --border: #333;
-  --accent: #6aa0e0; --panel: #252526; --active: #2d3a4d;
+  --accent: #8fb6db; --panel: #252526; --active: #2d3a4d;
+  --mb-seal: #d96a50;
   --scrollbar-thumb: rgba(255, 255, 255, 0.22); --scrollbar-thumb-hover: rgba(255, 255, 255, 0.42);
 }
 * { box-sizing: border-box; }
@@ -26,7 +33,6 @@ body { margin: 0; }
    否则固定宽度的子内容会撑出横向滚动条。max-width 阅读栏逻辑(.chapter)不受影响。 */
 .ant-layout, .ant-layout-content { min-width: 0; }
 .chapter {
-  border-bottom: 1px dashed var(--border);
   padding: 24px 0;
   font-size: var(--reading-font-size, 16px);
   line-height: var(--reading-line-height, 1.8);
@@ -34,7 +40,26 @@ body { margin: 0; }
   max-width: var(--reading-max-width, none);
   margin: 0 auto;
 }
-.chapter h2.chapter-title { color: var(--accent); }
+/* 章末订线:一段线、一个结——章与章由此「缝」在一起(签名元素,替代整宽虚线)。 */
+.chapter::after {
+  content: '';
+  display: block;
+  width: 128px;
+  height: 7px;
+  margin: 28px auto 0;
+  text-indent: 0;
+  background:
+    radial-gradient(circle at 50% 50%, var(--accent) 0 2.2px, transparent 3px),
+    linear-gradient(var(--border), var(--border)) left center / 46px 1px,
+    linear-gradient(var(--border), var(--border)) right center / 46px 1px;
+  background-repeat: no-repeat;
+}
+.chapter h2.chapter-title {
+  color: var(--accent);
+  font-family: var(--mb-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
 /* frontmatter 标签:标题下一行,缩进归零。 */
 .chapter-tags { margin: 6px 0 0; text-indent: 0; }
 /* 中文小说排版:首行缩进(可切换)+ 段间距。 */
@@ -145,3 +170,105 @@ pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; backgroun
 .chapter-editor-host .cm-gutters { background: var(--panel); border: none; }
 .chapter-editor-host .cm-activeLine { background: var(--active); }
 .chapter-editor-host .cm-cursor { border-left-color: var(--accent); }
+
+/* ── 品牌元素 ── */
+
+/* 顶栏品牌锁定:书标 + 宋体「文集」+ 小号拉丁名。 */
+.mb-brand { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.mb-brand-cn {
+  font-family: var(--mb-display);
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.mb-brand-en {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+@media (max-width: 720px) { .mb-brand-en { display: none; } }
+
+/* 目录侧栏右缘:订线(书脊缝线),替代实线边框。 */
+.mb-spine {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--border) 0 12px,
+    transparent 12px 20px
+  );
+  background-size: 1px 100%;
+  background-position: right top;
+  background-repeat: no-repeat;
+}
+
+/* 空状态首屏:品牌主视觉(封面锁定 + 题旨),下接来源选择。 */
+.mb-hero {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.mb-hero-name {
+  margin-top: 18px;
+  font-family: var(--mb-display);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em; /* 抵消末字后的字距,保持视觉居中 */
+}
+.mb-hero-latin {
+  margin-top: 10px;
+  font-size: 11px;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: var(--muted);
+}
+.mb-hero-tagline {
+  margin: 18px 0 0;
+  font-family: var(--mb-display);
+  font-size: 19px;
+  letter-spacing: 0.06em;
+}
+.mb-hero-sub {
+  margin: 8px 0 0;
+  max-width: 24em;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+  text-wrap: balance;
+}
+/* 订线分隔(与章末同纹样):品牌区与操作区之间。 */
+.mb-hero-stitch {
+  width: 128px;
+  height: 7px;
+  margin: 22px auto;
+  background:
+    radial-gradient(circle at 50% 50%, var(--accent) 0 2.2px, transparent 3px),
+    linear-gradient(var(--border), var(--border)) left center / 46px 1px,
+    linear-gradient(var(--border), var(--border)) right center / 46px 1px;
+  background-repeat: no-repeat;
+}
+.mb-hero .mb-source { text-align: left; }
+
+/* 隐私说明:安静的纸面便签,替代大块 Alert。 */
+.mb-trust {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+  text-align: left;
+}
+.mb-trust .anticon { color: var(--accent); margin-top: 4px; }
+.mb-trust b { color: var(--fg); font-weight: 600; }

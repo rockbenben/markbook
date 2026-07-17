@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Space, Tag, Typography } from 'antd'
+// (隐私说明用 .mb-trust 纸面便签呈现,错误提示仍用 Alert)
 import { FolderOutlined, FileTextOutlined, LockOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import { useStore } from '../store'
@@ -62,14 +63,14 @@ export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
   const openSample = () => run(async () => { await api.loadSample?.(); return true }, '加载示例失败')
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 460 }}>
-      <Alert
-        type="success"
-        showIcon
-        icon={<LockOutlined />}
-        message="纯本地 · 零上传"
-        description="文件只在本浏览器内打开,绝不上传到任何服务器;阅读偏好、书签、阅读进度、最近打开等设置都自动保存在本机浏览器,下次自动恢复。"
-      />
+    <Space direction="vertical" size="middle" className="mb-source" style={{ width: '100%', maxWidth: 460 }}>
+      <div className="mb-trust">
+        <LockOutlined />
+        <span>
+          <b>纯本地 · 零上传</b> —— 文件只在本浏览器内打开,绝不上传到任何服务器;
+          阅读偏好、书签、进度、最近打开都保存在本机,下次自动恢复。
+        </span>
+      </div>
 
       {recents.length > 0 ? (
         <div style={{ textAlign: 'left' }}>

@@ -1,14 +1,22 @@
+<div align="center">
+
+<img src="client/public/icon.svg" width="88" alt="MarkBook · 文集" />
+
 # MarkBook · 文集
 
-> 365 开源计划 #011 · 散落文本聚合阅读器 —— 纯本地、零上传
+**散落文本，聚合成书。**
+
+365 开源计划 #011 · 散落文本聚合阅读器 —— 纯本地、零上传
 
 [![CI](https://github.com/rockbenben/markbook/actions/workflows/ci.yml/badge.svg)](https://github.com/rockbenben/markbook/actions/workflows/ci.yml)
-[![Deploy: GitHub Pages](https://img.shields.io/badge/deploy-gh--pages-1677ff)](https://rockbenben.github.io/markbook/)
-[![PWA](https://img.shields.io/badge/PWA-installable%20%2F%20offline-5a0fc8)](docs/DEPLOY.md)
+[![Deploy: GitHub Pages](https://img.shields.io/badge/deploy-gh--pages-2c5a80)](https://rockbenben.github.io/markbook/)
+[![PWA](https://img.shields.io/badge/PWA-installable%20%2F%20offline-2c5a80)](docs/DEPLOY.md)
 ![Privacy](https://img.shields.io/badge/纯本地-零上传-2ea44f)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**散落文本,聚合成书。** 把一个文件夹(含子目录)里散落的 `.md` / `.txt`,**或一个大文件**,自动聚合 / 拆分成一本连续、可导航、可搜索、可导出的书 —— 读为先,读到需要时顺手就地编辑与整理。纯本地、零上传,文件改动实时同步。
+</div>
+
+把一个文件夹(含子目录)里散落的 `.md` / `.txt`,**或一个大文件**,自动聚合 / 拆分成一本连续、可导航、可搜索、可导出的书 —— 读为先,读到需要时顺手就地编辑与整理。纯本地、零上传,文件改动实时同步。
 
 你电脑里是不是有一坨散落的文本——几百个 `第NNN章.md`、一个几兆的下载网文 `.txt`、或一文件夹杂乱笔记?MarkBook 把它们(或一个大文件)自动**拆分 / 聚合成一本连续的书**:识别章节与卷、自然排序、全文搜索、按卷导出 TXT / EPUB / HTML,读起来像翻一本电子书。读到错别字想顺手改、要统一称谓、或清理下载来的乱码脏文本?**就地编辑、全局替换、一键整理**,改完写回原文件。它不跟专业编辑器抢饭碗,只把一件事做透:**让你那堆文本变得能舒服地读。**
 
@@ -126,8 +134,8 @@ node dist/server/index.js "D:\我的小说\全本.md"
 
 ## 技术栈
 
-- **前端** —— Vite + React + TypeScript + antd v6 + zustand;阅读 react-markdown(remark-gfm、rehype-highlight 代码高亮、github-slugger 锚点)、frontmatter 解析 yaml,编辑 CodeMirror 6(按需懒加载),列表 react-virtuoso。
-- **后端** —— Fastify + chokidar + WebSocket,搜索 FlexSearch,导出 unified / epub-gen-memory,生产经 esbuild 打包为单文件服务。
+- **前端** —— Vite 8(Rolldown)+ React 19 + TypeScript + antd 6 + zustand;阅读 react-markdown(remark-gfm、rehype-highlight 代码高亮、github-slugger 锚点)、frontmatter 解析 yaml,编辑 CodeMirror 6(按需懒加载),列表 react-virtuoso;测试 Vitest 4。
+- **后端** —— Fastify 5 + chokidar + WebSocket,搜索 FlexSearch,导出 unified / epub-gen-memory,生产经 esbuild 打包为单文件服务。
 - **共享核心** —— 与运行环境无关的逻辑(解析 / 拆分 / 排序 / 搜索 / 导出 / 整理 / 链接 / 渲染预处理 / id)集中在 `core/`,服务端与浏览器端共用,**一处实现两端同步**。静态版(`npm run build:static`,vite-plugin-pwa)正是用它把同一套逻辑搬进浏览器,经 File System Access API + localStorage 实现零服务端运行。
 
 纯本地、零上传。
@@ -144,7 +152,7 @@ node dist/server/index.js "D:\我的小说\全本.md"
 <details>
 <summary>单文件模式拆章 / 中文搜索分词异常,或启动报 <code>Intl.Segmenter</code> 相关错误</summary>
 
-全文搜索的中文分词用到 `Intl.Segmenter`,需要较新的 Node(推荐 20 / 22 / 24)。Node 过旧可能缺该 API,请升级 Node 后重试。
+全文搜索的中文分词用到 `Intl.Segmenter`,需要较新的 Node(项目本身要求 Node 20.19+,推荐 22 / 24)。Node 过旧可能缺该 API,请升级 Node 后重试。
 
 </details>
 
@@ -186,7 +194,7 @@ MarkBook 只读写你指定的本地目录 / 文件,不连任何外部服务,不
 
 欢迎 Issue 与 Pull Request。
 
-- 环境:Node 18+(推荐 20 / 22 / 24,单文件模式的中文分词依赖 `Intl.Segmenter`)。
+- 环境:Node 20.19+(推荐 22 / 24;Vite 8 的最低要求,中文分词另依赖 `Intl.Segmenter`)。
 - 本地跑通:`npm install` → `npm run dev`(前端 5173 + 后端 5179,自动代理、热更新)。完整脚本见 `package.json`。
 - 提交前:`npm test` 与两个 `tsc --noEmit` 类型检查应通过(CI 会再跑一遍)。
 - 提交信息用 [Conventional Commits](https://www.conventionalcommits.org/) 风格(`feat:` / `fix:` / `docs:` …)。
