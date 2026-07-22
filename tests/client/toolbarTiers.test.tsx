@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Toolbar, tierFor } from '../../client/src/components/Toolbar'
 import { api } from '../../client/src/api'
 import type { Backend } from '../../client/src/backend/types'
@@ -96,5 +96,38 @@ describe('Toolbar 按档位收纳', () => {
   it('宽度量不到(为 0)时不当作最窄档,避免未布局就把控件收光', () => {
     renderAt(0)
     expect(inBar('设置')).toBe(true)
+  })
+
+  it('minimal:翻章离开栏内后必须在「更多」里补回入口', async () => {
+    renderAt(600)
+    expect(inBar('上一章')).toBe(false)
+    fireEvent.click(document.querySelector('.mb-toolbar [aria-label="更多"]')!)
+    // 手机上目录默认折叠、j/k 用不了,菜单是唯一的翻章入口。
+    expect(await screen.findByText('上一章')).toBeTruthy()
+    expect(screen.getByText('下一章')).toBeTruthy()
+  })
+
+  it('翻章要能连点:点完菜单必须还开着', async () => {
+    renderAt(600)
+    fireEvent.click(document.querySelector('.mb-toolbar [aria-label="更多"]')!)
+    fireEvent.click(await screen.findByText('下一章'))
+    await new Promise((r) => setTimeout(r, 120))
+    // 手机上翻三章不该点六下 —— 一律关闭的写法会让每翻一章都要重开菜单。
+    expect(document.querySelector('.ant-popover')?.className ?? '').not.toContain('leave')
+    expect(screen.getByText('上一章')).toBeTruthy()
+  })
+
+  it('点菜单里的项会收起浮层,否则它会压在随后打开的弹窗上', async () => {
+    renderAt(600)
+    fireEvent.click(document.querySelector('.mb-toolbar [aria-label="更多"]')!)
+    const item = await screen.findByText('设置')
+    fireEvent.click(item)
+    // Popover 层级(1030)高于 Modal 遮罩(1000);不收起就会浮在设置弹窗上。
+    // jsdom 不跑 CSS 过渡,浮层停在离场动画里、到不了 ant-popover-hidden,
+    // 所以断言它已进入离场态(等价于 open 翻成了 false),并确认弹窗确实打开了。
+    await waitFor(() => {
+      expect(document.querySelector('.ant-popover')?.className).toContain('leave')
+      expect(document.querySelector('.ant-modal')).toBeTruthy()
+    })
   })
 })

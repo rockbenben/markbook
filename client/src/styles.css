@@ -81,6 +81,8 @@ body { margin: 0; }
 .cv-more .ant-btn:not(:disabled):hover { background: var(--active); }
 /* 菜单内的分节线:把「从顶栏收进来的控件」与「常驻的编辑/导出动作」分开。 */
 .cv-more-rule { height: 1px; margin: 4px 0; background: var(--border); }
+/* 只对「点了会打开弹窗/跳走」的那组绑收起动作;包裹层不参与布局。 */
+.cv-more-group { display: contents; }
 /* 排版/原文在窄档收进菜单,拉满宽度与其它条目对齐。 */
 .cv-more-seg .ant-segmented { width: 100%; }
 .cv-more-seg .ant-segmented-item { flex: 1; }

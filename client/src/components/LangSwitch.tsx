@@ -25,7 +25,9 @@ export function LangSwitch({ compact }: { compact?: boolean }) {
       trigger={['click']}
       placement="bottomRight"
       open={open}
-      onOpenChange={setOpen}
+      // 打开时顺手关掉 tooltip:触屏无 mouseleave,tipOpen 会滞留为 true,
+      // 菜单一收起 tooltip 就弹回来盖住顶栏。
+      onOpenChange={(v) => { setOpen(v); if (v) setTipOpen(false) }}
       menu={{
         selectedKeys: [lang],
         onClick: ({ key }) => setLang(key as Lang),

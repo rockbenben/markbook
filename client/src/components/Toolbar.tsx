@@ -63,6 +63,9 @@ function useTier(ref: RefObject<HTMLElement | null>): Tier {
 
 function BookmarksMenu({ quiet }: { quiet?: boolean }) {
   const t = useStore((s) => s.t)
+  // 受控:选了书签就收起 —— 否则 260px 的浮层会压在刚跳到的正文开头上。
+  // (RecentMenu 早就是受控的,这里补齐一致性。)
+  const [open, setOpen] = useState(false)
   const chapters = useStore((s) => s.chapters)
   const bookmarks = useStore((s) => s.bookmarks)
   const toggleBookmark = useStore((s) => s.toggleBookmark)
@@ -80,7 +83,7 @@ function BookmarksMenu({ quiet }: { quiet?: boolean }) {
       renderItem={(c) => (
         <List.Item
           style={{ cursor: 'pointer', paddingInline: 4 }}
-          onClick={() => jumpTo(c.id)}
+          onClick={() => { jumpTo(c.id); setOpen(false) }}
           actions={[
             <Button
               key="rm"
@@ -102,7 +105,7 @@ function BookmarksMenu({ quiet }: { quiet?: boolean }) {
   )
 
   return (
-    <Popover content={content} title={t.bookmarks} trigger="click" placement="bottomRight">
+    <Popover content={content} title={t.bookmarks} trigger="click" placement="bottomRight" open={open} onOpenChange={setOpen}>
       <Button type={quiet ? 'text' : undefined} icon={<BookOutlined />} aria-label={t.bookmarks} title={t.bookmarks} />
     </Popover>
   )
@@ -115,26 +118,38 @@ function BookmarksMenu({ quiet }: { quiet?: boolean }) {
  * 以及当前档位放不下、从栏里收进来的控件(`extra`)。
  * 菜单里的按钮**带文字**——顶栏为省空间只留图标,收进来时正好把名字补上。
  */
-function MoreMenu({ extra }: { extra?: ReactNode }) {
+function MoreMenu({ extra }: { extra?: (close: () => void) => ReactNode }) {
   const t = useStore((s) => s.t)
   const hasEditTools = api.canEdit || api.canExport
+  const [open, setOpen] = useState(false)
+  const [tipOpen, setTipOpen] = useState(false)
+  const close = () => setOpen(false)
+  // 打开菜单时顺手把 tooltip 关掉:触屏上没有 mouseleave,tipOpen 会一直是 true,
+  // 菜单一收起 tooltip 就弹回来,盖在刚打开的弹窗上。
+  const openMenu = (v: boolean) => { setOpen(v); if (v) setTipOpen(false) }
   const content = (
     <div className="cv-more">
-      {extra}
+      {extra?.(close)}
       {extra && hasEditTools ? <div className="cv-more-rule" /> : null}
-      {api.canEdit ? <ReplaceModal /> : null}
-      {api.canEdit && api.tidy ? <TidyModal /> : null}
-      {api.canExport ? <ExportModal /> : null}
-      <div className="cv-more-rule" />
-      {/* 仓库链接从顶栏移到这里:全应用频率最低的动作,不该占着右上角。 */}
-      <Button icon={<GithubOutlined />} href={REPO_URL} target="_blank" rel="noopener noreferrer">
-        {t.repo}
-      </Button>
+      {/* 这一组点了都会打开弹窗或跳走,收起菜单是对的 —— 但**只**绑在这里:
+          翻章、排版/原文那类要连点的控件在 extra 里,由各自的 onClick 决定关不关。
+          display:contents 让包裹层不参与布局,不破坏 .cv-more 的纵向排列。 */}
+      <div className="cv-more-group" onClick={close}>
+        {api.canEdit ? <ReplaceModal /> : null}
+        {api.canEdit && api.tidy ? <TidyModal /> : null}
+        {api.canExport ? <ExportModal /> : null}
+        <div className="cv-more-rule" />
+        {/* 仓库链接从顶栏移到这里:全应用频率最低的动作,不该占着右上角。 */}
+        <Button icon={<GithubOutlined />} href={REPO_URL} target="_blank" rel="noopener noreferrer">
+          {t.repo}
+        </Button>
+      </div>
     </div>
   )
   return (
-    <Popover content={content} trigger="click" placement="bottomRight">
-      <Tooltip title={t.more}>
+    <Popover content={content} trigger="click" placement="bottomRight" open={open} onOpenChange={openMenu}>
+      {/* 展开时强制收起 tooltip,否则它会盖住菜单第一项(与 LangSwitch 同一处理)。 */}
+      <Tooltip title={t.more} open={tipOpen && !open} onOpenChange={setTipOpen}>
         <Button type="text" icon={<EllipsisOutlined />} aria-label={t.more} />
       </Tooltip>
     </Popover>
@@ -207,12 +222,19 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
   const viewSwitch = (
     <Segmented<ViewMode> options={viewOptions} value={globalView} onChange={setGlobalView} />
   )
-  const overflow = (
+  // 收进菜单的控件各自决定点完关不关:
+  //   要连点的(翻章、排版/原文)保持展开 —— 否则手机上翻三章要点六下;
+  //   一次性的、或会打开弹窗 / 改变整页布局的,点完收起。
+  const overflow = (close: () => void) => (
     <>
       {!full ? <div className="cv-more-seg">{viewSwitch}</div> : null}
-      {minimal ? <BarButton inMenu icon={<FullscreenOutlined />} label={t.immersive} onClick={toggleImmersive} /> : null}
-      {!full ? <BarButton inMenu icon={<ReloadOutlined />} label={t.refresh} onClick={() => void doRefresh()} /> : null}
-      {!full ? <BarButton inMenu icon={<SettingOutlined />} label={t.settings} onClick={() => setSettingsOpen(true)} /> : null}
+      {/* 翻章在 minimal 档离开栏内,必须在这里补回入口:手机上目录默认折叠、
+          j/k 快捷键也用不了,少了这两项就只剩「翻目录找位置」一条路。 */}
+      {minimal ? <BarButton inMenu icon={<LeftOutlined />} label={t.prevChapter} onClick={goPrev} disabled={!hasPrev} /> : null}
+      {minimal ? <BarButton inMenu icon={<RightOutlined />} label={t.nextChapter} onClick={goNext} disabled={!hasNext} /> : null}
+      {minimal ? <BarButton inMenu icon={<FullscreenOutlined />} label={t.immersive} onClick={() => { toggleImmersive(); close() }} /> : null}
+      {!full ? <BarButton inMenu icon={<ReloadOutlined />} label={t.refresh} onClick={() => { void doRefresh(); close() }} /> : null}
+      {!full ? <BarButton inMenu icon={<SettingOutlined />} label={t.settings} onClick={() => { setSettingsOpen(true); close() }} /> : null}
     </>
   )
   const hasOverflow = !full
