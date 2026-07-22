@@ -126,7 +126,3 @@ Issues and pull requests are welcome.
 ## About the 365 Open Source Plan
 
 Project **#011** of the [365 Open Source Plan](https://github.com/rockbenben/365opensource) — one person + AI, 300+ open-source projects in a year. [Submit your idea →](https://365.aishort.top/) · [Discord](https://discord.gg/PZTQfJ4GjX) · [Telegram](https://t.me/aishort_top)
-
-## License
-
-[MIT](LICENSE) © rockbenben

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Button, Modal, Segmented, Select, Space, Typography } from 'antd'
 import { ExportOutlined } from '@ant-design/icons'
 import { useStore } from '../store'
+import { fmt } from '../i18n'
 import { api, exportUrl } from '../api'
 
 type Format = 'txt' | 'md' | 'html' | 'epub' | 'pdf'
@@ -39,12 +40,15 @@ export function ExportModal() {
     return seen
   }, [chapters])
 
+  // 依赖里必须带上 t:少了它,切换语言后范围下拉会停在旧语言,而弹窗里其它文字都变了。
+  // 标签整句走文案表 —— 原先是 `${t.volume}：${v}`,那个全角冒号写死在模板串里,
+  // 英文界面会渲染成 "Volume：Part One"。
   const scopeOptions = useMemo(
     () => [
       { label: t.volumeLabel, value: ALL_SCOPE },
-      ...volumes.map((v) => ({ label: `${t.volume}：${v}`, value: 'vol:' + v })),
+      ...volumes.map((v) => ({ label: fmt(t.volumeScope, { name: v }), value: 'vol:' + v })),
     ],
-    [volumes],
+    [volumes, t],
   )
 
   async function doExportBrowser() {

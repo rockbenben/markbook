@@ -36,8 +36,39 @@ describe('detectLang(通过 loadLang)', () => {
     expect(await loadWith(['zh_CN'])).toBe('zh')
   })
 
-  it('未列出的中文变体兜底到简体', async () => {
-    expect(await loadWith(['zh-yue'])).toBe('zh')
+  it('粤语/闽南语/客家话有独立的语言子标签,不以 zh 开头', async () => {
+    // 香港用户把系统语言设为粤语时,浏览器发的是 yue-Hant-HK 而非 zh-yue
+    // (旧版本这里写的是 zh-yue —— 那个标签任何浏览器都不发,等于没测)。
+    expect(await loadWith(['yue-Hant-HK'])).toBe('zh-TW')
+    expect(await loadWith(['yue'])).toBe('zh-TW')
+    expect(await loadWith(['nan-Hant-TW'])).toBe('zh-TW')
+    expect(await loadWith(['hak-Hant'])).toBe('zh-TW')
+    expect(await loadWith(['wuu'])).toBe('zh')
+    expect(await loadWith(['cmn-Hans-CN'])).toBe('zh')
+  })
+
+  it('脚本子标签出现在第三段时同样识别', async () => {
+    expect(await loadWith(['zh-Hant-TW'])).toBe('zh-TW')
+    expect(await loadWith(['zh-Hans-SG'])).toBe('zh')
+  })
+
+  it('ISO 639-3 的 zho 也是中文,不能掉进英文', async () => {
+    expect(await loadWith(['zho'])).toBe('zh')
+    expect(await loadWith(['zho-Hant-TW'])).toBe('zh-TW')
+  })
+
+  it('POSIX 写法带编码后缀时仍能认出地区', async () => {
+    // Electron 与部分 Linux 构建会发 zh_TW.UTF-8 这种串;
+    // 若不切掉 .UTF-8,地区段会变成 "tw.utf-8" 而匹配不上,繁体用户被降级成简体。
+    expect(await loadWith(['zh_TW.UTF-8'])).toBe('zh-TW')
+    expect(await loadWith(['zh_HK.Big5'])).toBe('zh-TW')
+    expect(await loadWith(['zh_CN.UTF-8'])).toBe('zh')
+  })
+
+  it('粤语默认繁体,但标签明确写了大陆地区时让步', async () => {
+    expect(await loadWith(['yue'])).toBe('zh-TW')
+    expect(await loadWith(['yue-CN'])).toBe('zh')
+    expect(await loadWith(['yue-Hant-CN'])).toBe('zh-TW') // 显式脚本优先于地区
   })
 
   it('英文与其他语言走 en', async () => {

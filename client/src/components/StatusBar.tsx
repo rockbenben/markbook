@@ -14,7 +14,7 @@ export function StatusBar() {
   const total = chapters.reduce((n, c) => n + c.wordCount, 0)
   // 数字分组也跟着语言走(原先写死 zh-CN)。
   const fmt = (n: number) => Number(n).toLocaleString(LOCALE_TAG[lang])
-  const readTime = formatReadingTime(estimateReadingMinutes(total))
+  const readTime = formatReadingTime(estimateReadingMinutes(total), t)
   const index = activeId ? chapters.findIndex((c) => c.id === activeId) : -1
   const active = index >= 0 ? chapters[index] : undefined
   // 总进度:已读到第 (index+1) 章 / 总章数。

@@ -7,7 +7,6 @@
 export interface UIStrings {
   /* 品牌 */
   appName: string;
-  appNameShort: string;
 
   /* 顶栏 · 导航 */
   toc: string;
@@ -16,7 +15,6 @@ export interface UIStrings {
   prevChapter: string;
   nextChapter: string;
   search: string;
-  searchPlaceholder: string;
 
   /* 顶栏 · 显示 */
   viewRender: string;
@@ -32,7 +30,6 @@ export interface UIStrings {
   bookmarks: string;
   noBookmarks: string;
   removeBookmark: string;
-  addBookmark: string;
   recentSources: string;
   refresh: string;
   more: string;
@@ -46,41 +43,27 @@ export interface UIStrings {
   save: string;
   saving: string;
   saved: string;
-  edit: string;
   delete: string;
   rename: string;
   create: string;
   preview: string;
-  copy: string;
-  copied: string;
-  retry: string;
   loading: string;
   prevPage: string;
   nextPage: string;
 
   /* 来源选择 */
-  chooseFolder: string;
-  chooseFile: string;
-  sourceHint: string;
   openFolder: string;
-  openFile: string;
-  reselect: string;
 
   /* 章节 */
   chapter: string;
   chapters: string;
   volume: string;
-  untitled: string;
   newChapter: string;
-  deleteChapterConfirm: string;
   renameChapter: string;
   chapterOutline: string;
 
   /* 编辑器 */
-  editorPlaceholder: string;
   unsavedChanges: string;
-  conflictWarning: string;
-  writeFailed: string;
   saveConflict: string;
   saveFailed: string;
   discardTitle: string;
@@ -125,38 +108,18 @@ export interface UIStrings {
   findReplace: string;
   findLabel: string;
   replaceLabel: string;
-  matchCase: string;
-  wholeWord: string;
   useRegex: string;
   replaceAll: string;
-  replaceScopeAll: string;
-  replaceScopeCurrent: string;
-  matchesFound: string;
   noMatches: string;
-  replaceDone: string;
 
   /* 整理 */
   tidy: string;
-  tidyDesc: string;
-  tidyRemoveGarbled: string;
-  tidyDedupeLines: string;
-  tidyStripRules: string;
-  tidyFullToHalf: string;
-  tidyTrimSpaces: string;
-  tidyPreview: string;
-  tidyApply: string;
   tidyNoChange: string;
-  tidyChangedLines: string;
 
   /* 导出 */
   export: string;
   exportFormat: string;
   exportScope: string;
-  exportWhole: string;
-  exportByVolume: string;
-  exportCurrent: string;
-  exporting: string;
-  exportFailed: string;
 
   /* 设置 */
   reading: string;
@@ -175,8 +138,6 @@ export interface UIStrings {
   paperNight: string;
   indent: string;
   language: string;
-  sortOrder: string;
-  autoScan: string;
 
   /* 设置弹窗 */
   apply: string;
@@ -201,18 +162,10 @@ export interface UIStrings {
   titleFromFilename: string;
 
   /* 状态栏 */
-  progress: string;
-  readingTime: string;
   wordCount: string;
-  connected: string;
-  disconnected: string;
-  reconnecting: string;
 
   /* 错误 / 空态 */
   empty: string;
-  noResults: string;
-  loadFailed: string;
-  notSupported: string;
 
   /* 查找替换（补充） */
   findEmpty: string;
@@ -256,6 +209,7 @@ export interface UIStrings {
   exportBook: string;
   noChaptersToExport: string;
   volumeLabel: string;
+  volumeScope: string;
   volumePos: string;
   currentChapter: string;
   progressPercent: string;

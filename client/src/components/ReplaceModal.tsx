@@ -3,13 +3,17 @@ import { App, Button, Input, List, Modal, Space, Switch, Tooltip, Typography } f
 import { SwapOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import { useStore } from '../store'
-import { fmt } from '../i18n'
+import { fmt, LOCALE_TAG } from '../i18n'
 
 type Preview = { total: number; chapters: { id: string; title: string; count: number }[] } | null
 
 /** 全局跨章查找替换:预览命中章节,确认后全部替换(章节列表经 WS reset 自动刷新)。 */
 export function ReplaceModal() {
   const t = useStore((s) => s.t)
+  const lang = useStore((s) => s.lang)
+  // 数字分组跟界面语言走。原先写死 'zh-CN',改 i18n 时只把参数删了,
+  // 等于退回浏览器默认区域 —— ar-EG 下会渲染出东阿拉伯数字。
+  const nf = (n: unknown) => Number(n).toLocaleString(LOCALE_TAG[lang])
   const { message, modal } = App.useApp()
   const [open, setOpen] = useState(false)
   const [find, setFind] = useState('')
@@ -47,7 +51,7 @@ export function ReplaceModal() {
         setBusy(true)
         try {
           const res = await api.replace({ find, replace, useRegex })
-          message.success(fmt(t.replacedSummary, { chapters: res.replaced ?? 0, total: Number(res.total).toLocaleString() }))
+          message.success(fmt(t.replacedSummary, { chapters: res.replaced ?? 0, total: nf(res.total) }))
           close()
         } catch (e: any) {
           message.error(e?.body?.message ?? t.replaceFailed)
@@ -94,7 +98,7 @@ export function ReplaceModal() {
             <div>
               <Typography.Text type="secondary">
                 {preview.chapters.length > 0
-                  ? fmt(t.matchSummary, { chapters: preview.chapters.length, total: Number(preview.total).toLocaleString() })
+                  ? fmt(t.matchSummary, { chapters: preview.chapters.length, total: nf(preview.total) })
                   : t.noMatches}
               </Typography.Text>
               {preview.chapters.length > 0 ? (
@@ -105,7 +109,7 @@ export function ReplaceModal() {
                   renderItem={(c) => (
                     <List.Item>
                       <span>{c.title}</span>
-                      <Typography.Text type="secondary">{fmt(t.occurrenceCount, { count: Number(c.count).toLocaleString() })}</Typography.Text>
+                      <Typography.Text type="secondary">{fmt(t.occurrenceCount, { count: nf(c.count) })}</Typography.Text>
                     </List.Item>
                   )}
                 />
