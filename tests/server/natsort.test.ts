@@ -16,16 +16,35 @@ describe('parseChineseNumber', () => {
     expect(parseChineseNumber('佰')).toBe(100)
     expect(parseChineseNumber('仟')).toBe(1000)
   })
-  it('繁体大写与萬(繁体书稿的章节名)', () => {
+  it('繁体大写与萬:简体形已在表内的才收', () => {
     expect(parseChineseNumber('貳')).toBe(2)
     expect(parseChineseNumber('兩')).toBe(2)
-    expect(parseChineseNumber('參')).toBe(3)
     expect(parseChineseNumber('陸')).toBe(6)
     expect(parseChineseNumber('一萬')).toBe(10000)
-    expect(parseChineseNumber('貳仟參佰')).toBe(2300)
+    expect(parseChineseNumber('貳仟肆佰')).toBe(2400)
     // 简繁同值,排序时不该分先后
     expect(parseChineseNumber('貳')).toBe(parseChineseNumber('贰'))
-    expect(naturalCompare('第貳章.md', '第參章.md')).toBeLessThan(0)
+    expect(parseChineseNumber('萬')).toBe(parseChineseNumber('万'))
+    expect(naturalCompare('第貳章.md', '第陸章.md')).toBeLessThan(0)
+  })
+
+  it('「參」按上下文决定是否作数字', () => {
+    // 繁体把数字形「叁」与词形「参」合并成一个「參」,靠字形分不开,只能看上下文。
+    // 一刀切两边都会坏书,所以两类场景必须同时成立。
+
+    // (1) 章节编号:「第」后面的參 = 3,必须落在正式数字序列的正确位置,而不是被甩到末尾
+    expect([...['第壹章.md', '第貳章.md', '第參章.md', '第肆章.md', '第伍章.md', '第拾章.md']].sort(naturalCompare))
+      .toEqual(['第壹章.md', '第貳章.md', '第參章.md', '第肆章.md', '第伍章.md', '第拾章.md'])
+
+    // (2) 常用词:不在数字上下文里的參 是文本。缺陷特征是「先后被后续字左右」——
+    //     若被当成数字 3 与「三」并列,同一个「參考資料」对不同的「三…」会给出相反方向。
+    const dirs = ['三國志.md', '三十六計.md', '三ABC.md']
+      .map((b) => Math.sign(naturalCompare('參考資料.md', b)))
+    expect(new Set(dirs).size, `方向应恒定,实际 ${dirs}`).toBe(1)
+
+    // (3) 夹在数字串里:相邻是非歧义数字字符,按数字处理
+    expect(parseChineseNumber('貳仟參佰')).toBe(2300)
+    expect(naturalCompare('第參拾章.md', '第參章.md')).toBeGreaterThan(0)
   })
   it('十的组合', () => {
     expect(parseChineseNumber('十')).toBe(10)

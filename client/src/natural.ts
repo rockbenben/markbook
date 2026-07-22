@@ -1,89 +1,11 @@
 import type { Chapter } from '../../shared/types'
+// 自然比较直接复用 core —— core/natsort.ts 零依赖,客户端可直接 import
+// (store.ts 早已在 import ../../core/sorter,后者又 import ./natsort)。
+// 这里原本手抄了一份实现,结果补繁体数字时要在两个文件里同步改五个字符;
+// 一旦漏改,增量插入与整页重载会给出不同的章节顺序。
+import { naturalCompare } from '../../core/natsort'
 
-// ───────────────────────── 自然比较(客户端口移植) ─────────────────────────
-// 与 server/natsort.ts 同源:中文数字 + 全角数字 + 阿拉伯数字感知。客户端无法
-// 跨边界 import server,故在此保留一份精简实现,用于 added 增量的就地排序自愈。
-
-const DIGIT_VALUE: Record<string, number> = {
-  '零': 0, '〇': 0, '一': 1, '壹': 1, '二': 2, '贰': 2, '貳': 2, '两': 2, '兩': 2, '三': 3, '叁': 3, '參': 3,
-  '四': 4, '肆': 4, '五': 5, '伍': 5, '六': 6, '陆': 6, '陸': 6, '七': 7, '柒': 7,
-  '八': 8, '捌': 8, '九': 9, '玖': 9,
-}
-const SMALL_UNIT: Record<string, number> = { '十': 10, '拾': 10, '百': 100, '佰': 100, '千': 1000, '仟': 1000 }
-const SPECIAL_TENS: Record<string, number> = { '廿': 20, '卅': 30, '卌': 40 }
-const BIG_UNIT: Record<string, number> = { '万': 10000, '萬': 10000 }
-const ZERO_CHARS = new Set(['零', '〇'])
-
-function isChineseNumeralChar(c: string): boolean {
-  return c in DIGIT_VALUE || c in SMALL_UNIT || c in SPECIAL_TENS || c in BIG_UNIT
-}
-
-function parseChineseNumber(s: string): number | null {
-  if (s.length === 0) return null
-  let total = 0, section = 0, current = 0, hasCurrent = false, sawAny = false
-  for (const c of s) {
-    if (c in DIGIT_VALUE && !ZERO_CHARS.has(c)) { current = DIGIT_VALUE[c]; hasCurrent = true; sawAny = true }
-    else if (ZERO_CHARS.has(c)) { current = 0; hasCurrent = false; sawAny = true }
-    else if (c in SMALL_UNIT) { section += (hasCurrent ? current : 1) * SMALL_UNIT[c]; current = 0; hasCurrent = false; sawAny = true }
-    else if (c in SPECIAL_TENS) { section += SPECIAL_TENS[c]; current = 0; hasCurrent = false; sawAny = true }
-    else if (c in BIG_UNIT) { const base = section + (hasCurrent ? current : 0); total += (base === 0 ? 1 : base) * BIG_UNIT[c]; section = 0; current = 0; hasCurrent = false; sawAny = true }
-    else return null
-  }
-  if (!sawAny) return null
-  return total + section + (hasCurrent ? current : 0)
-}
-
-function fullwidthToAscii(s: string): string {
-  let out = ''
-  for (const c of s) {
-    const code = c.charCodeAt(0)
-    out += code >= 0xff10 && code <= 0xff19 ? String.fromCharCode(code - 0xff10 + 0x30) : c
-  }
-  return out
-}
-function isAsciiDigit(c: string): boolean { return c >= '0' && c <= '9' }
-function isFullwidthDigit(c: string): boolean { const code = c.charCodeAt(0); return code >= 0xff10 && code <= 0xff19 }
-
-interface Segment { text: string; value: number | null }
-const textCollator = new Intl.Collator(undefined, { numeric: false, sensitivity: 'base' })
-
-function segment(s: string): Segment[] {
-  const segs: Segment[] = []
-  let i = 0
-  const n = s.length
-  while (i < n) {
-    const c = s[i]
-    if (isAsciiDigit(c)) {
-      let j = i; while (j < n && isAsciiDigit(s[j])) j++
-      const t = s.slice(i, j); segs.push({ text: t, value: parseInt(t, 10) }); i = j
-    } else if (isFullwidthDigit(c)) {
-      let j = i; while (j < n && isFullwidthDigit(s[j])) j++
-      const t = s.slice(i, j); segs.push({ text: t, value: parseInt(fullwidthToAscii(t), 10) }); i = j
-    } else if (isChineseNumeralChar(c)) {
-      let j = i; while (j < n && isChineseNumeralChar(s[j])) j++
-      const t = s.slice(i, j); const v = parseChineseNumber(t)
-      segs.push({ text: t, value: v }); i = j
-    } else {
-      let j = i
-      while (j < n && !isAsciiDigit(s[j]) && !isFullwidthDigit(s[j]) && !isChineseNumeralChar(s[j])) j++
-      segs.push({ text: s.slice(i, j), value: null }); i = j
-    }
-  }
-  return segs
-}
-
-/** 中文/全角/阿拉伯数字感知的自然比较。与 server/natsort.ts 行为一致。 */
-export function naturalCompare(a: string, b: string): number {
-  if (a === b) return 0
-  const as = segment(a), bs = segment(b)
-  const n = Math.min(as.length, bs.length)
-  for (let i = 0; i < n; i++) {
-    const x = as[i], y = bs[i]
-    if (x.value !== null && y.value !== null) { if (x.value !== y.value) return x.value - y.value }
-    else { const c = textCollator.compare(x.text, y.text); if (c !== 0) return c }
-  }
-  return as.length - bs.length
-}
+export { naturalCompare }
 
 // ───────────────────────── 章节排序键(镜像 server 'path' 默认排序) ─────────────────────────
 function dirOf(p: string): string { const i = p.lastIndexOf('/'); return i === -1 ? '' : p.slice(0, i) }

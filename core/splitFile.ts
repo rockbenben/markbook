@@ -19,7 +19,7 @@ interface Heading {
 const MD_HEADING_RE = /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/
 
 // 数字字符类:阿拉伯 / 全角 / 中文数字(含大写、两、廿卅卌)。
-const NUM = '0-9０-９零〇一二三四五六七八九壹贰叁肆伍陆柒捌玖两十拾百佰千仟万廿卅卌'
+const NUM = '0-9０-９零〇一二三四五六七八九壹贰叁肆伍陆柒捌玖两十拾百佰千仟万廿卅卌貳參陸兩萬'
 // 可剥离的环绕标点 / 括号(出现在标题两端)。
 const BRACKET = '【】「」『』《》〈〉\\[\\]（）()〔〕'
 const STRIP_RE = new RegExp(`[${BRACKET}\\s]`, 'g')
@@ -27,16 +27,16 @@ const STRIP_RE = new RegExp(`[${BRACKET}\\s]`, 'g')
 // 卷级(level 1)标记:第X卷/部/篇/集、卷X、上/中/下 卷/部/册、Vol/Volume/Book/Part N。
 // 标记后接负向先行断言,排除「部分/部赛/部游、集合/集和、篇张」等常见词被误判(借鉴 novel-processor)。
 const VOLUME_RES: RegExp[] = [
-  new RegExp(`^\\s*[${BRACKET}]?\\s*第[${NUM}]+(?:卷|部(?![分赛游])|篇(?!张)|集(?![合和]))[^\\n]*$`),
+  new RegExp(`^\\s*[${BRACKET}]?\\s*第[${NUM}]+(?:卷|部(?![分赛賽游遊])|篇(?![张張])|集(?![合和]))[^\\n]*$`),
   new RegExp(`^\\s*[${BRACKET}]?\\s*卷[${NUM}]+[^\\n]*$`),
-  /^\s*[【「『《〈[（(]?\s*[上中下](?:卷|部|册)\s*[^\n]*$/,
+  /^\s*[【「『《〈[（(]?\s*[上中下](?:卷|部|[册冊])\s*[^\n]*$/,
   /^\s*(?:Vol(?:ume)?|Book|Part)\.?\s+\d+\b[^\n]*$/i,
 ]
 
 // 章级(level 2)标记。负向先行断言排除「回合/回访/回忆…、节课、部分…、幕布/幕前后」等(借鉴 novel-processor)。
 const CHAPTER_RES: RegExp[] = [
   // 第X章/节/回/话/折/幕(允许「正文 第X章」前缀)
-  new RegExp(`^\\s*[${BRACKET}]?\\s*(?:正文\\s*)?第[${NUM}]+(?:章|节(?!课)|回(?![合访忆顾应答音])|话|折|幕(?![前后布]))[^\\n]*$`),
+  new RegExp(`^\\s*[${BRACKET}]?\\s*(?:正文\\s*)?第[${NUM}]+(?:章|[节節](?![课課])|回(?![合访訪忆憶顾顧应應答音])|[话話]|折|幕(?![前后後布]))[^\\n]*$`),
   // 裸 第X(无类别字),如「第108」
   new RegExp(`^\\s*[${BRACKET}]?\\s*第[${NUM}]+\\s*$`),
   // Chapter N / Ch. N / CHAPTER N / Section N
@@ -83,7 +83,7 @@ function passesNovelHeadingGuard(line: string): boolean {
 }
 
 // 中文数字字符类(用于枚举标题)。
-const CN_NUM = '零〇一二三四五六七八九壹贰叁肆伍陆柒捌玖两十拾百佰千仟万廿卅卌'
+const CN_NUM = '零〇一二三四五六七八九壹贰叁肆伍陆柒捌玖两十拾百佰千仟万廿卅卌貳參陸兩萬'
 // 标题分隔符:编号与标题文本之间允许的分隔。
 const SEP = '\\s、.．:：'
 
@@ -393,7 +393,7 @@ function detectSectionTxtStyle(sectionContent: string): TxtHeadingStyle {
   if (SETEXT_EQ_RE.test(next)) return { kind: 'setext-eq' }
   if (SETEXT_DASH_RE.test(next)) return { kind: 'setext-dash' }
   // 第X章/节/回/话/折
-  if (new RegExp(`^\\s*[${BRACKET}]?\\s*(?:正文\\s*)?第[${NUM}]+[章节回话折]`).test(head)) {
+  if (new RegExp(`^\\s*[${BRACKET}]?\\s*(?:正文\\s*)?第[${NUM}]+[章节節回话話折]`).test(head)) {
     return { kind: 'cjk-chapter' }
   }
   if (CN_ENUM_RE.test(head)) return { kind: 'cjk-enum' }
@@ -419,7 +419,7 @@ export function synthesizeTxtCreateHeading(sections: Section[], title: string): 
     const style = detectSectionTxtStyle(sec.content)
     counts[style.kind]++
     if (style.kind === 'cjk-chapter') {
-      const m = sec.content.match(new RegExp(`第([${NUM}]+)[章节回话折]`))
+      const m = sec.content.match(new RegExp(`第([${NUM}]+)[章节節回话話折]`))
       if (m) {
         const num = parseArabicOrCjk(m[1])
         if (num > maxChapterNum) maxChapterNum = num
@@ -484,7 +484,7 @@ function parseArabicOrCjk(s: string): number {
 // Chapter/Section N、十进制 1 / 2.3、阿拉伯枚举 1、/1.。
 const MARKER_RE = new RegExp(
   `^(\\s*[${BRACKET}]?\\s*(?:正文\\s*)?(?:` +
-    `第[${NUM}]+[章节回话折]` +                    // 第X章…
+    `第[${NUM}]+[章节節回话話折]` +                    // 第X章…
     `|[${CN_NUM}]+[、]` +                            // 一、
     `|[（(]\\s*[${CN_NUM}0-9０-９]+\\s*[）)]` +       // （一）
     `|(?:Chapter|Ch\\.?|Section)\\s+\\d+` +          // Chapter N

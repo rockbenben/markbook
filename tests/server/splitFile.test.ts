@@ -586,3 +586,32 @@ describe('synthesizeTxtCreateHeading — 新建标题须可识别(不丢章)', (
     expect(createRoundTrip('第一章 开始\n正文\n', '续章').headingBlock).toBe('第二章 续章')
   })
 })
+
+describe('splitFileIntoSections — 繁体书稿', () => {
+  const titles = (txt: string) => splitFileIntoSections(txt, 'txt').map((s) => s.title)
+
+  // 排序表补了繁体数字,但切分正则一直是纯简体 —— 繁体书压根切不出章节,
+  // 整本会当成一个巨大的单章、目录为空,排序修得再对也用不上。
+  it('第X章:繁体数字(參/萬)与繁体正文都能切出章节', () => {
+    expect(titles(['第一章 開端', '風起。', '第參章 相逢', '又一段。', '第一萬章 終', '結尾。'].join('\n')))
+      .toEqual(['第一章 開端', '第參章 相逢', '第一萬章 終'])
+  })
+
+  it('繁体类别字 節 / 話 同样识别', () => {
+    expect(titles(['第壹節 序', '甲。', '第貳節 承', '乙。'].join('\n'))).toEqual(['第壹節 序', '第貳節 承'])
+    expect(titles(['第一話 出發', '甲。', '第二話 抵達', '乙。'].join('\n'))).toEqual(['第一話 出發', '第二話 抵達'])
+  })
+
+  it('负向断言对繁体词形同样生效,不把常用词误判成章节', () => {
+    // 简体侧原本就排除 回忆 / 部分 / 节课;繁体的 回憶 / 部賽 / 課 也要排除。
+    // 无标记时整篇会作为一节返回,所以断言「这些词没有变成章节标题」而不是「没有节」。
+    for (const w of ['回憶往事', '第一部賽', '回顧與展望']) {
+      expect(titles(`${w}\n正文`), w).not.toContain(w)
+    }
+  })
+
+  it('简体不因此回归', () => {
+    expect(titles(['第一章 开端', '甲。', '第二章 风起', '乙。'].join('\n')))
+      .toEqual(['第一章 开端', '第二章 风起'])
+  })
+})

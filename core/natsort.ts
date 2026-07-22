@@ -1,7 +1,7 @@
 // 中文数字 + 全角数字 + 阿拉伯数字感知的自然比较。
 // parseChineseNumber 采用标准的「节(万)累加」算法。
 
-// 数字字符值(0-9 与大写;简繁大写并收,繁体书稿的「第貳章」「第一萬章」同样可排序)
+// 数字字符值(0-9 与大写;简繁并收)。
 const DIGIT_VALUE: Record<string, number> = {
   '零': 0, '〇': 0,
   '一': 1, '壹': 1,
@@ -14,6 +14,19 @@ const DIGIT_VALUE: Record<string, number> = {
   '八': 8, '捌': 8,
   '九': 9, '玖': 9,
 }
+
+/**
+ * 既是数字、又是常用词的字 —— 只在数字上下文里才按数字处理。
+ *
+ * 简体把数字形「叁」和词形「参」分成两个字,表里只收前者就够了;繁体两者合并为「參」,
+ * 无法靠字形区分。两种一刀切都会坏一类书:
+ *   收 → 「參考資料」被当成数字 3,与「三」并列后由后续字决定先后,繁体书库静默改序;
+ *   不收 → 「第參章」退成文本段,会被排到「第壹貳肆伍拾章」整串的**最末尾**。
+ * 所以按上下文判断,见 actsAsNumeral()。
+ */
+const AMBIGUOUS = new Set(['參'])
+/** 章节编号的前缀字:其后紧跟的歧义字必定是数字。 */
+const ORDINAL_PREFIX = new Set(['第'])
 
 // 小节内乘数:十/百/千(及大写、特殊倍数 廿卅卌)
 const SMALL_UNIT: Record<string, number> = {
@@ -34,7 +47,25 @@ const BIG_UNIT: Record<string, number> = {
 
 const ZERO_CHARS = new Set(['零', '〇'])
 
-/** 该字符是否属于中文数字字符集(用于 naturalCompare 的分段)。 */
+/**
+ * 位置 i 的字符在 s 中是否**充当数字**。
+ *
+ * 非歧义字直接看字符集;歧义字(見 AMBIGUOUS)还要看上下文,满足其一才算数字:
+ *   - 紧跟在「第」后面 —— 章节编号,如「第參章」「第參拾章」;
+ *   - 紧邻另一个非歧义的数字字符 —— 如「貳仟參佰」里的參。
+ * 都不满足就是普通词,如「參考資料」「參賽名單」。
+ */
+function actsAsNumeral(s: string, i: number): boolean {
+  const c = s[i]
+  if (!isChineseNumeralChar(c)) return false
+  if (!AMBIGUOUS.has(c)) return true
+  if (i > 0 && ORDINAL_PREFIX.has(s[i - 1])) return true
+  const neighbor = (j: number) =>
+    j >= 0 && j < s.length && isChineseNumeralChar(s[j]) && !AMBIGUOUS.has(s[j])
+  return neighbor(i - 1) || neighbor(i + 1)
+}
+
+/** 该字符是否属于中文数字字符集(不含上下文判断,分段时请用 actsAsNumeral)。 */
 export function isChineseNumeralChar(c: string): boolean {
   return (
     c in DIGIT_VALUE ||
@@ -151,9 +182,9 @@ function segment(s: string): Segment[] {
       const t = s.slice(i, j)
       segs.push({ text: t, value: parseInt(fullwidthToAscii(t), 10) })
       i = j
-    } else if (isChineseNumeralChar(c)) {
+    } else if (actsAsNumeral(s, i)) {
       let j = i
-      while (j < n && isChineseNumeralChar(s[j])) j++
+      while (j < n && actsAsNumeral(s, j)) j++
       const t = s.slice(i, j)
       const v = parseChineseNumber(t)
       if (v === null) segs.push({ text: t, value: null }) // 解析失败 → 文本
@@ -166,7 +197,7 @@ function segment(s: string): Segment[] {
         j < n &&
         !isAsciiDigit(s[j]) &&
         !isFullwidthDigit(s[j]) &&
-        !isChineseNumeralChar(s[j])
+        !actsAsNumeral(s, j)
       ) j++
       segs.push({ text: s.slice(i, j), value: null })
       i = j
