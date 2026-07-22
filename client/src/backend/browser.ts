@@ -16,28 +16,13 @@ import { loadRecents, saveRecent, removeRecent, saveUploadSnapshot, loadUploadSn
 import { safeBaseName, uniqueName, renameFileTarget, rewriteHeadingTitle } from '../../../core/naming'
 import { escapeRegExp, countMatches } from '../../../core/regex'
 import { tidyText, type TidyOptions } from '../../../core/tidy'
+import { TABLES, loadLang, fmt } from '../i18n'
+import { SAMPLE_BOOK } from '../i18n/sample'
 
 type RootHandle = DirHandleLike & WritableDirHandleLike
 
-// 内置示例:既能让用户「先看看」立刻体验阅读,本身又是一份简短使用说明(按 # 标题分章)。
-const SAMPLE_MD = `# 欢迎使用 MarkBook
-MarkBook 把一堆 .md / .txt 文本聚合成一本可连续阅读、可搜索、可编辑的「书」。全部在你的浏览器里完成,文件不会上传到任何服务器。
-
-# 怎么打开你自己的书
-点上方「打开文件夹」,选一个装着 .md / .txt 的文件夹——每个文件就是一章;或「打开单个文件」,打开一个大文件,会按其中的标题自动分章。
-
-# 阅读
-左侧目录可点击跳转、可在上方过滤;顶部「搜索全文」找内容,选中后会跳到该处并高亮。右侧「排版 / 原文」切换显示方式。
-
-# 编辑(需 Chrome / Edge)
-点右下角铅笔修改当前章,Ctrl/Cmd+S 保存回原文件;目录里还能新建 / 重命名 / 删除章节,以及全书查找替换。
-
-# 个性化
-顶部「Aa」可调字号、行距、字体、页宽与背景(护眼 / 羊皮纸 / 夜间);全屏按钮进入沉浸阅读。所有偏好都记在本机浏览器里。
-`
-
 const conflict = (diskMtime: number) =>
-  Object.assign(new Error('conflict'), { status: 409, body: { diskMtime, message: '磁盘版本已变更，保存被拒绝' } })
+  Object.assign(new Error('conflict'), { status: 409, body: { diskMtime, message: TABLES[loadLang()].diskChangedRejected } })
 const badRequest = (message: string) =>
   Object.assign(new Error(message), { status: 400, body: { message } })
 
@@ -101,8 +86,8 @@ export class BrowserBackend implements Backend {
     this.broadcast()
     return mtime
   }
-  private requireDir(): RootHandle { if (!this.dirHandle) throw new Error('尚未选择文件夹'); return this.dirHandle }
-  private requireFile(): FileHandleRW { if (!this.fileHandle) throw new Error('只读模式,无法写入'); return this.fileHandle }
+  private requireDir(): RootHandle { if (!this.dirHandle) throw new Error(TABLES[loadLang()].noFolderChosen); return this.dirHandle }
+  private requireFile(): FileHandleRW { if (!this.fileHandle) throw new Error(TABLES[loadLang()].readOnlyMode); return this.fileHandle }
   private topLevelNames(exclude?: string): string[] {
     return this.entries.filter((e) => !e.path.includes('/') && e.path !== exclude).map((e) => e.path)
   }
@@ -144,7 +129,7 @@ export class BrowserBackend implements Backend {
     if (!picker) return null
     let handles: FileHandleRW[]
     try {
-      handles = await picker({ types: [{ description: '文本', accept: { 'text/*': ['.md', '.txt'] } }] })
+      handles = await picker({ types: [{ description: TABLES[loadLang()].textLabel, accept: { 'text/*': ['.md', '.txt'] } }] })
     } catch { return null }
     const fh = handles[0]
     if (!fh) return null
@@ -157,7 +142,7 @@ export class BrowserBackend implements Backend {
   /** 上传文件夹(只读)。 */
   async loadFiles(files: File[]): Promise<AppConfig> {
     const entries = await filesToEntries(files)
-    const name = uploadFolderName(files) || '(上传)'
+    const name = uploadFolderName(files) || TABLES[loadLang()].uploadedSuffix
     this.loadEntries(null, entries)
     void saveUploadSnapshot({ kind: 'folder', name, entries }) // 缓存以便刷新后只读重开
     return saveBrowserConfig({ root: name })
@@ -172,8 +157,8 @@ export class BrowserBackend implements Backend {
 
   /** 加载内置示例(只读),供首次上手体验。 */
   async loadSample(): Promise<void> {
-    this.openSingle(null, SAMPLE_MD, '示例.md', 0)
-    saveBrowserConfig({ root: '示例' })
+    this.openSingle(null, SAMPLE_BOOK[loadLang()], TABLES[loadLang()].sampleFileName, 0)
+    saveBrowserConfig({ root: TABLES[loadLang()].sampleTitle })
   }
 
   /** 重新读取当前来源以反映外部改动(目录重扫 / 单文件重读);上传快照无可重读。 */
@@ -278,7 +263,7 @@ export class BrowserBackend implements Backend {
 
   async createChapter(body: { title: string; afterId?: string }): Promise<{ ok: boolean }> {
     const title = body.title.trim()
-    if (!title) throw badRequest('标题不能为空')
+    if (!title) throw badRequest(TABLES[loadLang()].titleRequired)
     if (this.single) { await this.commitSingle(this.single.createSection(title)); return { ok: true } }
     const handle = this.requireDir()
     const name = uniqueName(this.topLevelNames(), safeBaseName(title), '.md')
@@ -291,7 +276,7 @@ export class BrowserBackend implements Backend {
 
   async renameChapter(id: string, title: string): Promise<{ ok: boolean }> {
     const trimmed = title.trim()
-    if (!trimmed) throw badRequest('标题不能为空')
+    if (!trimmed) throw badRequest(TABLES[loadLang()].titleRequired)
     if (this.single) { await this.commitSingle(this.single.renameSection(id, trimmed)); return { ok: true } }
     const handle = this.requireDir()
     const rel = this.store.pathOf(id)
@@ -340,10 +325,10 @@ export class BrowserBackend implements Backend {
 
   async replace(body: { find: string; replace: string; useRegex?: boolean; dryRun?: boolean }): Promise<ReplaceResult> {
     const { find, replace, useRegex = false, dryRun = false } = body
-    if (!find) throw badRequest('查找内容不能为空')
+    if (!find) throw badRequest(TABLES[loadLang()].findEmpty)
     let re: RegExp
     try { re = new RegExp(useRegex ? find : escapeRegExp(find), 'g') } catch (err) {
-      throw badRequest('正则表达式无效：' + (err as Error).message)
+      throw badRequest(fmt(TABLES[loadLang()].regexInvalid, { message: (err as Error).message }))
     }
     // 字面模式下转义替换串里的 $:String.replace 会把 $$、$&、$` 等当特殊模式,
     // 不转义会损坏含 $ 的字面替换(如 markdown 行间公式 $$)。正则模式保留 $ 语义。
@@ -430,7 +415,7 @@ export class BrowserBackend implements Backend {
     }
   }
 
-  async browse(): Promise<BrowseResult> { throw new Error('browse 在静态模式不可用') }
+  async browse(): Promise<BrowseResult> { throw new Error(TABLES[loadLang()].browseUnavailable) }
   exportUrl(): string | null { return null }
 
   async exportToBlob(format: string, scope?: string): Promise<{ blob: Blob; filename: string } | null> {
@@ -441,7 +426,7 @@ export class BrowserBackend implements Backend {
     }
     if (chapters.length === 0) return null
     const getContent = async (id: string) => this.active().raw(id).content
-    const book = loadBrowserConfig().root.replace(/\.[^.]+$/, '') || '导出'
+    const book = loadBrowserConfig().root.replace(/\.[^.]+$/, '') || TABLES[loadLang()].export
     // 导出管线(unified/remark)按需加载,不进首屏 bundle。
     // 仅支持纯前端可生成的格式;EPUB 依赖服务端(epub-gen,node-only),静态版不提供——
     // 显式返回 null,避免落入兜底分支把 EPUB 静默导成 TXT。

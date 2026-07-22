@@ -6,15 +6,16 @@
 
 **散落文本，聚合成书。**
 
-365 开源计划 #011 · 散落文本聚合阅读器 —— 纯本地、零上传
+散落文本聚合阅读器 —— 纯本地、零上传
 
 [![CI](https://github.com/rockbenben/markbook/actions/workflows/ci.yml/badge.svg)](https://github.com/rockbenben/markbook/actions/workflows/ci.yml)
-[![Deploy: GitHub Pages](https://img.shields.io/badge/deploy-gh--pages-2c5a80)](https://rockbenben.github.io/markbook/)
-[![PWA](https://img.shields.io/badge/PWA-installable%20%2F%20offline-2c5a80)](docs/DEPLOY.md)
-![Privacy](https://img.shields.io/badge/纯本地-零上传-2ea44f)
+[![在线体验](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E4%BD%93%E9%AA%8C-markbook.newzone.top-2c5a80)](https://markbook.newzone.top/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![365 开源计划 #011](https://img.shields.io/badge/365%20%E5%BC%80%E6%BA%90%E8%AE%A1%E5%88%92-%23011-1f6feb)](https://github.com/rockbenben/365opensource)
 
 </div>
+
+[English](README.en.md) · **简体中文**
 
 把一个文件夹(含子目录)里散落的 `.md` / `.txt`,**或一个大文件**,自动聚合 / 拆分成一本连续、可导航、可搜索、可导出的书 —— 读为先,读到需要时顺手就地编辑与整理。纯本地、零上传,文件改动实时同步。
 
@@ -40,7 +41,6 @@
   - [常见问题](#常见问题)
   - [隐私](#隐私)
   - [贡献](#贡献)
-  - [许可证](#许可证)
   - [关于 365 开源计划](#关于-365-开源计划)
 
 ## 功能特性
@@ -51,9 +51,10 @@ MarkBook 把一堆散落的文本——几百个 `第001章.md`、一份下载�
 - **🎨 阅读体验** —— 虚拟化渲染(几百上千章也流畅,超大单章自动分页)、排版 / 原文视图(`.txt` 也按正文排版、代码块语法高亮、本地相对图片可显示且不溢出)、字号 / 行距 / 字体 / 页宽 / 首行缩进、护眼 / 羊皮纸 / 夜间背景、沉浸模式、阅读进度与书签,响应式窄屏自适应,全部持久化。
 - **🧭 导航** —— 左侧自动生成、按卷分组、可折叠可过滤的目录(TOC),滚动时高亮并跟随当前章;长文档另有浮动**章内大纲**(子标题导航);md **跨文件链接**(`[x](./other.md)`)点击跳到对应章;`j` / `k`、空格翻页、`Home` / `End` 快捷键;目录模式可在 TOC 中**手动拖动排序**(卷内拖动,顺序存浏览器,导出同步跟随)。
 - **🔍 搜索** —— FlexSearch 索引 + `Intl.Segmenter` 中文分词,多词 / 前缀 / 相关度排序,显示每章命中数,跳转后高亮命中。
-- **📤 导出** —— 整本或按卷导出 TXT / Markdown / HTML(自带目录与样式)/ EPUB / PDF,送进 Kindle / 手机阅读器或分享。
+- **📤 导出** —— 整本或按卷导出 TXT / Markdown / HTML(自带目录与样式)/ EPUB,送进 Kindle / 手机阅读器或分享。PDF 走浏览器打印生成的 HTML;EPUB 需服务端版。
 - **✏️ 顺手编辑 / 整理** —— 读到错别字就地改、跨章全局查找替换(统一称谓)、一键**整理**(去乱码 / 重复行 / 分隔条 / 全角转半角…清理下载来的脏文本,可预览)、章节新建 / 改名 / 删除;CodeMirror 双栏预览、防抖自动保存、mtime 冲突保护,改完写回原文件。**够用就好,不跟专业编辑器抢活。**
 - **⚡ 实时同步** —— chokidar 监听 + WebSocket 推送,外部改动文件后视图平滑更新并保留滚动位置(服务端版)。
+- **🌍 界面语言** —— 简体中文 / English,设置里随时切换,默认跟随浏览器语言。
 
 > 一切在本机运行,数据不出本地。逐项说明见 [使用指南](docs/USAGE.md)。
 
@@ -61,14 +62,12 @@ MarkBook 把一堆散落的文本——几百个 `第001章.md`、一份下载�
 
 最初是为**写长篇小说 / 网文**而做的:几百个 `第NNN章.md` 散在一个文件夹里,用它**聚合成一本连续稿**通读、就地改稿、跨章查找替换、按卷导出。除此之外,凡是「**很多段文本想当成一本书来读 / 改**」的场景都适用:
 
-- **✍️ 小说 / 网文创作 / 阅读** —— 多章聚合连读,把控节奏与前后照应;就地编辑写回、全书查找替换(改名、统一称谓)、一键**整理**从小说站下载的杂乱文本、按卷导出投稿 / 备份。
+- **✍️ 小说 / 网文创作 / 阅读** —— 多章聚合连读,把控节奏与前后照应;就地改稿、全书查找替换(改名、统一称谓)、一键**整理**从小说站下载的杂乱文本、按卷导出。
 - **📚 技术文档 / 手册** —— 把分散的 `.md` 聚合阅读,或把一份大手册按标题自动拆章导航;改完即存回源文件。
-- **🗒️ 笔记 / 日记 / 读书摘抄** —— 按日期或主题分文件,聚合成一本可全文检索的笔记本,随手编辑。
-- **🔬 研究资料 / 文献整理** —— 零散摘录丢进一个文件夹,立刻能连读、能搜、能定位到行。
-- **🌐 翻译 / 校对** —— 原文分章,逐章对照编辑、统一术语(全局替换),进度一目了然。
-- **🎬 剧本 / 讲稿 / 播客脚本** —— 分段写作,连续通读检查衔接,再导出成稿。
-- **📖 电子书 / 合集制作** —— 聚合后一键导出 TXT / Markdown / HTML / EPUB / PDF,送进 Kindle、手机阅读器或直接分享。
-- **📥 接手他人文本** —— 一个文件夹直接打开就能读、能搜,不必逐个文件点开。
+- **🗒️ 笔记 / 研究资料** —— 按日期或主题分的文件、零散摘录,聚合成一本可全文检索的册子,随手编辑。
+- **📖 电子书制作** —— 聚合后一键导出 TXT / Markdown / HTML / EPUB,送进 Kindle 或手机阅读器。
+
+翻译校对、剧本讲稿、接手别人的一堆文本,同理。
 
 > 不依赖特定目录结构或命名规范——文件名带编号(如 `第001章`)排序最准,没有也能用标题 / 文件名兜底。
 
@@ -200,12 +199,6 @@ MarkBook 只读写你指定的本地目录 / 文件,不连任何外部服务,不
 - 提交信息用 [Conventional Commits](https://www.conventionalcommits.org/) 风格(`feat:` / `fix:` / `docs:` …)。
 - 改了行为请同步更新相关文档。
 
-## 许可证
-
-[MIT](LICENSE) © rockbenben
-
 ## 关于 365 开源计划
 
-本项目是 [365 开源计划](https://github.com/rockbenben/365opensource) 的第 011 个项目。
-
-一个人 + AI，一年 300+ 个开源项目。[提交你的需求 →](https://my.feishu.cn/share/base/form/shrcnI6y7rrmlSjbzkYXh6sjmzb)
+[365 开源计划](https://github.com/rockbenben/365opensource) 的第 **#011** 个项目——一个人 + AI，一年 300+ 个开源项目。[提交你的需求 →](https://365.aishort.top/) · [Discord](https://discord.gg/PZTQfJ4GjX) · [Telegram](https://t.me/aishort_top)

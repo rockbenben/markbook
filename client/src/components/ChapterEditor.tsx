@@ -47,6 +47,7 @@ export function ChapterEditor({ chapter }: { chapter: Chapter }) {
   const setEditBaseMtime = useStore((s) => s.setEditBaseMtime)
   const stopEditing = useStore((s) => s.stopEditing)
   const { message, modal } = App.useApp()
+  const t = useStore((s) => s.t)
   const host = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const [preview, setPreview] = useState('')
@@ -127,15 +128,15 @@ export function ChapterEditor({ chapter }: { chapter: Chapter }) {
       setEditBaseMtime(res.mtime)
       savedSnapshot.current = snapshot
       setStatus('saved')
-      if (!silent) message.success('已保存')
+      if (!silent) message.success(t.saved)
     } catch (e: any) {
       if (e?.status === 409) {
         setDiskMtime(e?.body?.diskMtime ?? null)
         setStatus('conflict')
-        message.warning('保存冲突：磁盘版本已变更')
+        message.warning(t.saveConflict)
       } else {
         setStatus('error')
-        message.error('保存失败')
+        message.error(t.saveFailed)
       }
     } finally {
       isSavingRef.current = false
@@ -149,21 +150,21 @@ export function ChapterEditor({ chapter }: { chapter: Chapter }) {
   // 冲突面板的两个破坏性操作加确认步骤(context-aware modal,沿用主题/纸张 token)。
   const confirmReloadFromDisk = () => {
     modal.confirm({
-      title: '放弃未保存的修改？',
-      content: '将丢弃当前编辑内容，载入磁盘上的版本。',
+      title: t.discardTitle,
+      content: t.discardBody,
       okButtonProps: { danger: true },
-      okText: '放弃并载入',
-      cancelText: '取消',
+      okText: t.discardAndLoad,
+      cancelText: t.cancel,
       onOk: () => reloadFromDisk(),
     })
   }
   const confirmForceSave = () => {
     modal.confirm({
-      title: '覆盖磁盘上的较新版本？',
-      content: '磁盘版本较新，强制保存将覆盖它。',
+      title: t.overwriteTitle,
+      content: t.overwriteBody,
       okButtonProps: { danger: true },
-      okText: '强制覆盖',
-      cancelText: '取消',
+      okText: t.forceOverwrite,
+      cancelText: t.cancel,
       onOk: () => forceSave(),
     })
   }
@@ -222,10 +223,10 @@ export function ChapterEditor({ chapter }: { chapter: Chapter }) {
   useEffect(() => () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current) }, [])
 
   const statusText =
-    status === 'saving' ? (autosave ? '自动保存中…' : '保存中…')
-      : status === 'saved' ? '已保存'
-      : status === 'error' ? '保存失败'
-      : dirty ? '未保存' : ''
+    status === 'saving' ? (autosave ? t.autoSaving : t.saving)
+      : status === 'saved' ? t.saved
+      : status === 'error' ? t.saveFailed
+      : dirty ? t.unsaved : ''
 
   return (
     <div className="chapter-editor">
@@ -234,16 +235,16 @@ export function ChapterEditor({ chapter }: { chapter: Chapter }) {
           value={split}
           onChange={toggleSplit}
           options={[
-            { label: '双栏', value: true },
-            { label: '单栏', value: false },
+            { label: t.twoPane, value: true },
+            { label: t.onePane, value: false },
           ]}
         />
-        <Button type="primary" onClick={() => save()}>保存</Button>
+        <Button type="primary" onClick={() => save()}>{t.save}</Button>
         <Space size={4} align="center">
-          <Switch size="small" checked={autosave} onChange={toggleAutosave} aria-label="自动保存" />
-          <span style={{ whiteSpace: 'nowrap' }}>自动保存</span>
+          <Switch size="small" checked={autosave} onChange={toggleAutosave} aria-label={t.autoSave} />
+          <span style={{ whiteSpace: 'nowrap' }}>{t.autoSave}</span>
         </Space>
-        <Button onClick={guardedClose}>关闭</Button>
+        <Button onClick={guardedClose}>{t.close}</Button>
         {statusText ? <span className="chapter-editor-status">{statusText}</span> : null}
       </div>
       {status === 'conflict' ? (
@@ -251,11 +252,11 @@ export function ChapterEditor({ chapter }: { chapter: Chapter }) {
           type="warning"
           showIcon
           style={{ marginBottom: 12 }}
-          message="文件已被外部修改，为避免覆盖，本次未保存。"
+          message={t.externallyModified}
           action={
             <Space>
-              <Button size="small" onClick={confirmReloadFromDisk}>放弃修改并载入磁盘版本</Button>
-              <Button size="small" danger onClick={confirmForceSave}>强制覆盖</Button>
+              <Button size="small" onClick={confirmReloadFromDisk}>{t.discardAndReload}</Button>
+              <Button size="small" danger onClick={confirmForceSave}>{t.forceOverwrite}</Button>
             </Space>
           }
         />
@@ -270,14 +271,14 @@ export function ChapterEditor({ chapter }: { chapter: Chapter }) {
       </div>
       <Modal
         open={confirmClose}
-        title="有未保存的修改"
-        okText="放弃修改关闭"
-        cancelText="继续编辑"
+        title={t.unsavedChanges}
+        okText={t.closeDiscarding}
+        cancelText={t.keepEditing}
         okButtonProps={{ danger: true }}
         onOk={() => { setConfirmClose(false); stopEditing() }}
         onCancel={() => setConfirmClose(false)}
       >
-        关闭将丢失未保存内容，确定关闭？
+        {t.closeLoseChanges}
       </Modal>
     </div>
   )

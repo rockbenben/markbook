@@ -55,7 +55,14 @@ export default defineConfig(({ mode }) => {
       },
       {
         extends: true,
-        test: { name: 'client', environment: 'jsdom', include: ['../tests/client/**/*.test.ts', '../tests/client/**/*.test.tsx'] },
+        test: {
+          name: 'client',
+          environment: 'jsdom',
+          include: ['../tests/client/**/*.test.ts', '../tests/client/**/*.test.tsx'],
+          // 界面语言默认跟随 navigator.language(jsdom 里是 en-US);现有断言写的是中文渲染,
+          // 故用 setup 把语言钉死为 zh,保证测试结果确定。
+          setupFiles: ['./test-setup.ts'],
+        },
       },
     ],
   },

@@ -11,7 +11,8 @@ type Recent = { id: number; name: string; kind: string }
  * 服务端版与静态版都实现了 Backend.listRecents/openRecent/removeRecent,组件对 mode 无感知。
  * 最近列表为 MRU,队首即当前来源(切库时置顶),故首项标记「当前」。
  */
-export function RecentMenu() {
+export function RecentMenu({ quiet }: { quiet?: boolean }) {
+  const t = useStore((s) => s.t)
   const setChapters = useStore((s) => s.setChapters)
   const [recents, setRecents] = useState<Recent[]>([])
   const [open, setOpen] = useState(false)
@@ -44,7 +45,7 @@ export function RecentMenu() {
   if (!api.listRecents) return null
 
   const content = recents.length === 0 ? (
-    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无最近打开" style={{ margin: '8px 0' }} />
+    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t.noRecent} style={{ margin: '8px 0' }} />
   ) : (
     <List
       size="small"
@@ -59,7 +60,7 @@ export function RecentMenu() {
               key="rm"
               type="text"
               size="small"
-              aria-label="移除"
+              aria-label={t.remove}
               icon={<CloseOutlined />}
               onClick={(e) => { e.stopPropagation(); remove(r.id) }}
             />,
@@ -68,7 +69,7 @@ export function RecentMenu() {
           <List.Item.Meta
             avatar={r.kind === 'file' ? <FileTextOutlined /> : <FolderOutlined />}
             title={<span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>}
-            description={i === 0 ? <Tag color="success" style={{ marginInlineEnd: 0 }}>当前</Tag> : undefined}
+            description={i === 0 ? <Tag color="success" style={{ marginInlineEnd: 0 }}>{t.current}</Tag> : undefined}
           />
         </List.Item>
       )}
@@ -78,13 +79,13 @@ export function RecentMenu() {
   return (
     <Popover
       content={content}
-      title={<Typography.Text>最近打开</Typography.Text>}
+      title={<Typography.Text>{t.recentSources}</Typography.Text>}
       trigger="click"
       placement="bottomRight"
       open={open}
       onOpenChange={(v) => { setOpen(v); if (v) refresh() }}
     >
-      <Button icon={<ClockCircleOutlined />} aria-label="最近打开" title="最近打开" />
+      <Button type={quiet ? 'text' : undefined} icon={<ClockCircleOutlined />} aria-label={t.recentSources} title={t.recentSources} />
     </Popover>
   )
 }

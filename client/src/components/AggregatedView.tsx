@@ -3,6 +3,7 @@ import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { Button, Empty, Flex, Spin } from 'antd'
 import GithubSlugger from 'github-slugger'
 import { useStore } from '../store'
+import { CJK_WORDMARK } from '../i18n'
 import { api } from '../api'
 import { highlightInContainer, clearHighlight } from '../highlight'
 import { cleanBody, extractHeadings } from '../../../core/render'
@@ -29,7 +30,10 @@ function posKeyForRoot(root: string | null): string {
 const FONT_STACKS: Record<string, string> = {
   system: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif",
   serif: "Georgia, 'Songti SC', 'SimSun', serif",
-  mono: 'ui-monospace, Consolas, monospace',
+  // system / serif 都显式点名了中文字体,中日韩字形不看 <html lang> 脸色。
+  // mono 原本只有 Consolas(无中日韩字形),中文正文会掉进浏览器按 lang 挑的兜底字体,
+  // 界面切英文时字形可能变成日文偏好;补上中文字体收口——CJK 本就是全角,与拉丁等宽混排是常规做法。
+  mono: "ui-monospace, Consolas, 'PingFang SC', 'Microsoft YaHei', monospace",
 }
 
 /** 根据已挂载章节的真实 DOM 位置,挑出视口顶部锚线处的章节 id(不依赖 Virtuoso 的高度估算)。 */
@@ -45,6 +49,8 @@ function activeFromDom(scroller: HTMLElement, anchor = 80): string | null {
 }
 
 export function AggregatedView() {
+  const t = useStore((s) => s.t)
+  const lang = useStore((s) => s.lang)
   const chapters = useStore((s) => s.chapters)
   const loaded = useStore((s) => s.loaded)
   const setActive = useStore((s) => s.setActive)
@@ -200,7 +206,7 @@ export function AggregatedView() {
   if (!loaded) {
     return (
       <Flex className="main" style={readingStyle} align="center" justify="center">
-        <Spin tip="加载中…" size="large"><div style={{ padding: 24 }} /></Spin>
+        <Spin tip={t.loading} size="large"><div style={{ padding: 24 }} /></Spin>
       </Flex>
     )
   }
@@ -214,20 +220,27 @@ export function AggregatedView() {
           // 打开即知道这是什么、为何可信、下一步做什么。
           <div className="mb-hero" style={{ overflowY: 'auto', maxHeight: '100%' }}>
             <BrandMark size={72} />
-            <div className="mb-hero-name">文集</div>
-            <div className="mb-hero-latin">MARKBOOK</div>
-            <p className="mb-hero-tagline">散落文本，聚合成书</p>
-            <p className="mb-hero-sub">把一文件夹 .md / .txt，或一个大文件，读成一本连续、可搜索、可导出的书。</p>
+            {CJK_WORDMARK[lang] ? (
+              <>
+                <div className="mb-hero-name">文集</div>
+                <div className="mb-hero-latin">MARKBOOK</div>
+              </>
+            ) : (
+              // 英文:拉丁名接管主字标,不再另起一行重复 MARKBOOK
+              <div className="mb-hero-name mb-hero-name-latin">MarkBook</div>
+            )}
+            <p className="mb-hero-tagline">{t.aggregateTagline}</p>
+            <p className="mb-hero-sub">{t.aggregateIntro}</p>
             <div className="mb-hero-stitch" aria-hidden />
             <SourcePicker />
           </div>
         ) : (
-          <Empty description="没有可显示的章节" style={{ maxWidth: 420, textAlign: 'center' }}>
+          <Empty description={t.noChaptersToShow} style={{ maxWidth: 420, textAlign: 'center' }}>
             <div style={{ marginBottom: 16, color: 'var(--ant-color-text-secondary, #999)', fontSize: 13 }}>
-              请在「设置」中选择包含 .md / .txt 的文件夹，或打开单个文本文件
+              {t.emptyServerHint}
             </div>
             <Button type="primary" onClick={() => window.dispatchEvent(new Event('cv:open-settings'))}>
-              打开设置
+              {t.openSettings}
             </Button>
           </Empty>
         )}

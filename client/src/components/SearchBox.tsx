@@ -3,9 +3,13 @@ import { AutoComplete, Input, Typography } from 'antd'
 import type { AutoCompleteProps } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
 import { api } from '../api'
+import { useStore } from '../store'
+import { fmt, LOCALE_TAG } from '../i18n'
 import type { SearchHit } from '../../../shared/types'
 
-export function SearchBox() {
+export function SearchBox({ compact }: { compact?: boolean }) {
+  const t = useStore((s) => s.t)
+  const lang = useStore((s) => s.lang)
   const [q, setQ] = useState('')
   const [options, setOptions] = useState<AutoCompleteProps['options']>([])
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -19,7 +23,9 @@ export function SearchBox() {
       label: (
         <div>
           <Typography.Text strong>{h.title}</Typography.Text>{' '}
-          <Typography.Text type="secondary">· {Number(h.count).toLocaleString('zh-CN')} 处 · 行 {h.line}</Typography.Text>
+          <Typography.Text type="secondary">
+            · {fmt(t.occurrenceCount, { count: Number(h.count).toLocaleString(LOCALE_TAG[lang]) })} · {fmt(t.lineLabel, { line: h.line })}
+          </Typography.Text>
           <div style={{ color: 'var(--muted)', fontSize: 12 }}>…{h.snippet}…</div>
         </div>
       ),
@@ -38,14 +44,14 @@ export function SearchBox() {
         if (latest.current !== value) return
         // 有响应但无命中:给一条禁用占位项,避免下拉静默空白让人误以为还在加载。
         if (res.length === 0) {
-          setOptions([{ value: '__empty__', label: '无匹配结果', disabled: true }])
+          setOptions([{ value: '__empty__', label: t.noSearchResults, disabled: true }])
           return
         }
         setOptions(res.map(toOption))
       } catch {
         if (latest.current !== value) return
         // 搜索失败:给出一条禁用项,避免下拉静默空白(也不抛未捕获 rejection)。
-        setOptions([{ value: '__error__', label: '搜索失败', disabled: true }])
+        setOptions([{ value: '__error__', label: t.searchFailed, disabled: true }])
       }
     }, 250)
   }
@@ -67,9 +73,9 @@ export function SearchBox() {
       onSearch={run}
       onSelect={onSelect}
       // 工具栏换行时可收缩,避免把其它控件挤出可视区;窄屏下退到最小宽度后随行换行。
-      style={{ flex: '1 1 200px', minWidth: 120, maxWidth: 320 }}
+      style={{ flex: '1 1 200px', minWidth: compact ? 104 : 120, maxWidth: 320 }}
     >
-      <Input prefix={<SearchOutlined />} placeholder="搜索全文…" />
+      <Input prefix={<SearchOutlined />} placeholder={t.searchFullText} />
     </AutoComplete>
   )
 }

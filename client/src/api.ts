@@ -3,6 +3,7 @@ import type { Backend, BrowseResult } from './backend/types'
 import { connectWS } from './wsClient'
 import { browserApi } from './backend/browser'
 import { loadBrowserConfig, saveBrowserConfig, pushRecentRoot } from './backend/browserConfig'
+import { TABLES, loadLang } from './i18n'
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, body: await res.json().catch(() => ({})) })
@@ -26,7 +27,7 @@ async function cvFetch(input: string, init: RequestInit = {}): Promise<Response>
   })
   const res = await fetch(input, withTok(clientToken()))
   if (res.status === 401 && typeof window !== 'undefined') {
-    const entered = window.prompt('需要访问令牌,请粘贴服务端的 CV_TOKEN:')?.trim()
+    const entered = window.prompt(TABLES[loadLang()].tokenPrompt)?.trim()
     if (entered) { sessionStorage.setItem('cv-token', entered); return fetch(input, withTok(entered)) }
   }
   return res
@@ -133,7 +134,7 @@ const serverApi: Backend = {
     const blob = await res.blob()
     const cd = res.headers.get('content-disposition') ?? ''
     const m = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)/i)
-    const filename = m ? decodeURIComponent(m[1]) : `导出.${format}`
+    const filename = m ? decodeURIComponent(m[1]) : `${TABLES[loadLang()].export}.${format}`
     return { blob, filename }
   },
   setOrder: async (order) => {

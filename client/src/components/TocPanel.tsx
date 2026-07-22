@@ -5,6 +5,7 @@ import type { MenuProps } from 'antd'
 import type { Chapter } from '../../../shared/types'
 import { api } from '../api'
 import { useStore } from '../store'
+import { fmt } from '../i18n'
 import { ChapterLabel } from './ChapterLabel'
 import { TocTree } from './TocTree'
 
@@ -41,6 +42,7 @@ function buildItems(
 }
 
 export function TocPanel({ chapters, activeId, onJump }: Props) {
+  const t = useStore((s) => s.t)
   const { message } = App.useApp()
   const ref = useRef<HTMLDivElement>(null)
   const [filter, setFilter] = useState('')
@@ -66,7 +68,7 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
       await api.createChapter({ title, afterId: activeId ?? undefined })
       setCreateOpen(false); setCreateTitle('')
     } catch (e: any) {
-      message.error(e?.body?.message ?? '操作失败') // 失败保持弹窗,便于用户修正
+      message.error(e?.body?.message ?? t.actionFailed) // 失败保持弹窗,便于用户修正
     } finally { setBusy(false) }
   }
   const doRename = async () => {
@@ -77,7 +79,7 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
       await api.renameChapter(renameTarget.id, title)
       setRenameTarget(null)
     } catch (e: any) {
-      message.error(e?.body?.message ?? '操作失败')
+      message.error(e?.body?.message ?? t.actionFailed)
     } finally { setBusy(false) }
   }
   const doDelete = async () => {
@@ -87,7 +89,7 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
       await api.deleteChapter(deleteTarget.id)
       setDeleteTarget(null)
     } catch (e: any) {
-      message.error(e?.body?.message ?? '操作失败')
+      message.error(e?.body?.message ?? t.actionFailed)
     } finally { setBusy(false) }
   }
 
@@ -183,15 +185,15 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
         <Input
           allowClear
           prefix={<SearchOutlined />}
-          placeholder="过滤章节…"
+          placeholder={t.filterChapters}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
         {api.canEdit ? (
-          <Tooltip title="新建章节">
+          <Tooltip title={t.newChapter}>
             <Button
               icon={<PlusOutlined />}
-              aria-label="新建章节"
+              aria-label={t.newChapter}
               onClick={() => { setCreateTitle(''); setCreateOpen(true) }}
             />
           </Tooltip>
@@ -224,18 +226,18 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
       )}
 
       <Modal
-        title="新建章节"
+        title={t.newChapter}
         open={createOpen}
         confirmLoading={busy}
-        okText="创建"
-        cancelText="取消"
+        okText={t.create}
+        cancelText={t.cancel}
         onOk={doCreate}
         onCancel={() => setCreateOpen(false)}
         destroyOnHidden
       >
         <Input
           autoFocus
-          placeholder="章节标题"
+          placeholder={t.chapterTitle}
           value={createTitle}
           onChange={(e) => setCreateTitle(e.target.value)}
           onPressEnter={doCreate}
@@ -243,18 +245,18 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
       </Modal>
 
       <Modal
-        title="重命名章节"
+        title={t.renameChapter}
         open={!!renameTarget}
         confirmLoading={busy}
-        okText="保存"
-        cancelText="取消"
+        okText={t.save}
+        cancelText={t.cancel}
         onOk={doRename}
         onCancel={() => setRenameTarget(null)}
         destroyOnHidden
       >
         <Input
           autoFocus
-          placeholder="新的标题"
+          placeholder={t.newTitle}
           value={renameTitle}
           onChange={(e) => setRenameTitle(e.target.value)}
           onPressEnter={doRename}
@@ -262,17 +264,17 @@ export function TocPanel({ chapters, activeId, onJump }: Props) {
       </Modal>
 
       <Modal
-        title="删除章节"
+        title={t.deleteChapter}
         open={!!deleteTarget}
         confirmLoading={busy}
-        okText="删除"
+        okText={t.delete}
         okButtonProps={{ danger: true }}
-        cancelText="取消"
+        cancelText={t.cancel}
         onOk={doDelete}
         onCancel={() => setDeleteTarget(null)}
         destroyOnHidden
       >
-        确定删除「{deleteTarget?.title}」？此操作不可撤销。
+        {fmt(t.deleteChapterBody, { title: deleteTarget?.title ?? '' })}
       </Modal>
     </div>
   )

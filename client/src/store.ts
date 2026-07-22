@@ -4,6 +4,7 @@ import { insertNatural } from './natural'
 import { api } from './api'
 import type { WSStatus } from './wsClient'
 import { applyManualOrder } from '../../core/sorter'
+import { loadLang, saveLang, TABLES, type Lang, type UIStrings } from './i18n'
 
 export type ViewMode = 'render' | 'source'
 
@@ -141,6 +142,8 @@ interface State {
   editBaseMtime: number                    // 编辑基准 mtime(冲突检测用)
   theme: 'light' | 'dark'
   reading: ReadingPrefs                    // 阅读样式偏好(持久化到 localStorage)
+  lang: Lang                               // 界面语言(独立持久化:换书不该重置语言)
+  t: UIStrings                             // 当前语言的文案表,组件里直接 const t = useStore(s => s.t)
   immersive: boolean                       // 沉浸阅读:隐藏页头/侧栏/页脚(持久化)
   bookmarks: string[]                      // 书签:章节 id 列表(持久化到 localStorage)
   root: string
@@ -159,6 +162,7 @@ interface State {
   setEditBaseMtime: (m: number) => void
   toggleTheme: () => void
   setReading: (patch: Partial<ReadingPrefs>) => void
+  setLang: (lang: Lang) => void
   toggleImmersive: () => void
   toggleBookmark: (id: string) => void
   isBookmarked: (id: string) => boolean
@@ -193,6 +197,8 @@ export const useStore = create<State>((set, get) => ({
   editBaseMtime: 0,
   theme: persisted.theme ?? 'light',
   reading: loadReading(),
+  lang: loadLang(),
+  t: TABLES[loadLang()],
   immersive: loadImmersive(),
   bookmarks: loadBookmarks(),
   root: '',
@@ -297,6 +303,7 @@ export const useStore = create<State>((set, get) => ({
     localStorage.setItem(READING_KEY, JSON.stringify(reading))
     return { reading }
   }),
+  setLang: (lang) => set(() => { saveLang(lang); return { lang, t: TABLES[lang] } }),
   toggleImmersive: () => set((s) => {
     const immersive = !s.immersive
     try { localStorage.setItem(IMMERSIVE_KEY, immersive ? '1' : '0') } catch { /* ignore */ }

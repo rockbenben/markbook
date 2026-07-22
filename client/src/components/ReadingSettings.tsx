@@ -1,25 +1,27 @@
 import { Button, Flex, Popover, Segmented, Slider, Space, Switch, Typography } from 'antd'
 import { FontSizeOutlined } from '@ant-design/icons'
 import { useStore, type FontFamilyPref, type PaperPref } from '../store'
+import { fmt, type UIStrings } from '../i18n'
 
-const FONT_OPTIONS: { label: string; value: FontFamilyPref }[] = [
-  { label: '系统', value: 'system' },
-  { label: '衬线', value: 'serif' },
-  { label: '等宽', value: 'mono' },
+// label 存文案表的 key,取值时再查表,这样切语言选项文字会跟着变。
+const FONT_OPTIONS: { label: keyof UIStrings; value: FontFamilyPref }[] = [
+  { label: 'fontSystem', value: 'system' },
+  { label: 'fontSerif', value: 'serif' },
+  { label: 'fontMono', value: 'mono' },
 ]
 
-const WIDTH_OPTIONS: { label: string; value: number }[] = [
-  { label: '窄', value: 720 },
-  { label: '中', value: 860 },
-  { label: '宽', value: 1100 },
-  { label: '全宽', value: 0 },
+const WIDTH_OPTIONS: { label: keyof UIStrings; value: number }[] = [
+  { label: 'widthNarrow', value: 720 },
+  { label: 'widthMedium', value: 860 },
+  { label: 'widthWide', value: 1100 },
+  { label: 'pageWidthFull', value: 0 },
 ]
 
-const PAPER_OPTIONS: { label: string; value: PaperPref }[] = [
-  { label: '默认', value: 'default' },
-  { label: '护眼', value: 'sepia' },
-  { label: '羊皮纸', value: 'paper' },
-  { label: '夜间', value: 'night' },
+const PAPER_OPTIONS: { label: keyof UIStrings; value: PaperPref }[] = [
+  { label: 'paperDefault', value: 'default' },
+  { label: 'paperSepia', value: 'sepia' },
+  { label: 'paperPaper', value: 'paper' },
+  { label: 'paperNight', value: 'night' },
 ]
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -32,11 +34,12 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 function ReadingControls() {
+  const t = useStore((s) => s.t)
   const reading = useStore((s) => s.reading)
   const setReading = useStore((s) => s.setReading)
   return (
     <Space direction="vertical" size="middle" style={{ width: 280 }}>
-      <Row label={`字号 ${reading.fontSize}px`}>
+      <Row label={fmt(t.fontSizeLabel, { size: reading.fontSize })}>
         <Slider
           min={14}
           max={24}
@@ -44,7 +47,7 @@ function ReadingControls() {
           onChange={(fontSize) => setReading({ fontSize })}
         />
       </Row>
-      <Row label={`行距 ${reading.lineHeight.toFixed(1)}`}>
+      <Row label={fmt(t.lineHeightLabel, { value: reading.lineHeight.toFixed(1) })}>
         <Slider
           min={1.4}
           max={2.4}
@@ -53,47 +56,51 @@ function ReadingControls() {
           onChange={(lineHeight) => setReading({ lineHeight })}
         />
       </Row>
-      <Row label="字体">
+      <Row label={t.fontFamily}>
         <Segmented<FontFamilyPref>
           block
-          options={FONT_OPTIONS}
+          options={FONT_OPTIONS.map((o) => ({ ...o, label: t[o.label] }))}
           value={reading.fontFamily}
           onChange={(fontFamily) => setReading({ fontFamily })}
         />
       </Row>
-      <Row label="页宽">
+      <Row label={t.pageWidth}>
         <Segmented<number>
           block
-          options={WIDTH_OPTIONS}
+          options={WIDTH_OPTIONS.map((o) => ({ ...o, label: t[o.label] }))}
           value={reading.maxWidth}
           onChange={(maxWidth) => setReading({ maxWidth })}
         />
       </Row>
-      <Row label="背景">
+      <Row label={t.paper}>
         <Segmented<PaperPref>
           block
-          options={PAPER_OPTIONS}
+          options={PAPER_OPTIONS.map((o) => ({ ...o, label: t[o.label] }))}
           value={reading.paper}
           onChange={(paper) => setReading({ paper })}
         />
       </Row>
       <Flex align="center" justify="space-between">
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>首行缩进</Typography.Text>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t.indent}</Typography.Text>
         <Switch checked={reading.indent} onChange={(indent) => setReading({ indent })} />
       </Flex>
     </Space>
   )
 }
 
-export function ReadingSettings() {
+export function ReadingSettings({ compact }: { compact?: boolean }) {
+  const t = useStore((s) => s.t)
   return (
     <Popover
       trigger="click"
       placement="bottomRight"
-      title="阅读设置"
+      title={t.readingSettings}
       content={<ReadingControls />}
     >
-      <Button icon={<FontSizeOutlined />} aria-label="阅读设置">Aa</Button>
+      {/* compact:窄档只留图标,省下的宽度让给搜索框 */}
+      <Button type="text" icon={<FontSizeOutlined />} aria-label={t.readingSettings}>
+        {compact ? null : 'Aa'}
+      </Button>
     </Popover>
   )
 }

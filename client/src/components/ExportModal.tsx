@@ -17,6 +17,7 @@ const FORMAT_OPTIONS: { label: string; value: Format }[] = [
 const ALL_SCOPE = 'all'
 
 export function ExportModal() {
+  const t = useStore((s) => s.t)
   const chapters = useStore((s) => s.chapters)
   const empty = chapters.length === 0
   const [open, setOpen] = useState(false)
@@ -40,8 +41,8 @@ export function ExportModal() {
 
   const scopeOptions = useMemo(
     () => [
-      { label: '全本', value: ALL_SCOPE },
-      ...volumes.map((v) => ({ label: `卷：${v}`, value: 'vol:' + v })),
+      { label: t.volumeLabel, value: ALL_SCOPE },
+      ...volumes.map((v) => ({ label: `${t.volume}：${v}`, value: 'vol:' + v })),
     ],
     [volumes],
   )
@@ -96,23 +97,23 @@ export function ExportModal() {
   return (
     <>
       <Button icon={<ExportOutlined />} onClick={() => setOpen(true)} disabled={empty}>
-        导出
+        {t.export}
       </Button>
       <Modal
-        title="导出本书"
+        title={t.exportBook}
         open={open}
         onCancel={() => setOpen(false)}
-        okText="导出"
-        cancelText="取消"
+        okText={t.export}
+        cancelText={t.cancel}
         onOk={doExport}
         okButtonProps={{ disabled: empty }}
       >
         <Space direction="vertical" size="large" style={{ width: '100%', marginTop: 12 }}>
           {empty ? (
-            <Typography.Text type="warning">当前没有可导出的章节。</Typography.Text>
+            <Typography.Text type="warning">{t.noChaptersToExport}</Typography.Text>
           ) : null}
           <div>
-            <Typography.Text strong>格式</Typography.Text>
+            <Typography.Text strong>{t.exportFormat}</Typography.Text>
             <div style={{ marginTop: 8 }}>
               <Segmented<Format>
                 options={formatOptions}
@@ -122,12 +123,12 @@ export function ExportModal() {
             </div>
             {format === 'pdf' ? (
               <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                PDF 通过浏览器打印生成：在打印对话框中选择「另存为 PDF」。
+                {t.pdfHint}
               </Typography.Text>
             ) : null}
           </div>
           <div>
-            <Typography.Text strong>范围</Typography.Text>
+            <Typography.Text strong>{t.exportScope}</Typography.Text>
             <div style={{ marginTop: 8 }}>
               <Select
                 style={{ width: '100%' }}

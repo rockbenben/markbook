@@ -3,6 +3,7 @@ import { App, Tree } from 'antd'
 import type { TreeDataNode, TreeProps } from 'antd'
 import type { Chapter } from '../../../shared/types'
 import { ChapterLabel } from './ChapterLabel'
+import { useStore } from '../store'
 
 const VOL_PREFIX = 'vol:'
 const isVolKey = (k: string) => k.startsWith(VOL_PREFIX)
@@ -41,6 +42,7 @@ function buildTree(
 }
 
 export function TocTree({ chapters, activeId, onJump, onRename, onDelete, onReorder, draggable }: Props) {
+  const t = useStore((s) => s.t)
   const { message } = App.useApp()
   const ref = useRef<HTMLDivElement>(null)
   const byId = useMemo(() => new Map(chapters.map((c) => [c.id, c])), [chapters])
@@ -86,7 +88,7 @@ export function TocTree({ chapters, activeId, onJump, onRename, onDelete, onReor
     const dropKey = String(info.node.key)
     if (isVolKey(dropKey)) {
       const volName = dropKey.slice(VOL_PREFIX.length)
-      if (drag.volume !== volName) { message.warning('只能在同一卷内调整顺序'); return }
+      if (drag.volume !== volName) { message.warning(t.sameVolumeOnly); return }
       const first = ids.findIndex((id) => (byId.get(id)?.volume ?? null) === volName)
       ids.splice(first < 0 ? ids.length : first, 0, dragId)
       onReorder(ids)
@@ -96,7 +98,7 @@ export function TocTree({ chapters, activeId, onJump, onRename, onDelete, onReor
     const drop = byId.get(dropKey)
     if (!drop) return
     if ((drag.volume ?? null) !== (drop.volume ?? null)) {
-      message.warning('只能在同一卷内调整顺序')
+      message.warning(t.sameVolumeOnly)
       return
     }
     let to = ids.indexOf(dropKey)

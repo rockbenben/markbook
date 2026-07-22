@@ -4,6 +4,7 @@ import { FolderOutlined, FileTextOutlined, UpOutlined } from '@ant-design/icons'
 import type { TreeDataNode } from 'antd'
 import { api } from '../api'
 import { useStore } from '../store'
+import { LANGS, LANG_LABELS } from '../i18n'
 import { SourcePicker } from './SourcePicker'
 import type { AppConfig, SortMode } from '../../../shared/types'
 
@@ -40,6 +41,9 @@ function childrenOf(basePath: string, dirs: string[], files: string[] | undefine
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
+  const t = useStore((s) => s.t)
+  const lang = useStore((s) => s.lang)
+  const setLang = useStore((s) => s.setLang)
   const setChapters = useStore((s) => s.setChapters)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -61,7 +65,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       setTreeData([{ ...dirNode(b.path), children: childrenOf(b.path, b.dirs, b.files) }])
       setExpandedKeys([b.path]); setSelectedKeys([b.path]); setParent(b.parent); setDrives(b.drives ?? [])
     } catch (e) {
-      setBrowseErr((e as { body?: { message?: string } }).body?.message ?? '浏览失败')
+      setBrowseErr((e as { body?: { message?: string } }).body?.message ?? t.browseFailed)
     }
   }
   async function loadData(node: TreeDataNode): Promise<void> {
@@ -70,7 +74,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       const b = await api.browse(node.key as string)
       setTreeData((origin) => setNodeChildren(origin, node.key, childrenOf(b.path, b.dirs, b.files)))
     } catch (e) {
-      setBrowseErr((e as { body?: { message?: string } }).body?.message ?? '浏览失败')
+      setBrowseErr((e as { body?: { message?: string } }).body?.message ?? t.browseFailed)
     }
   }
   function onTreeSelect(keys: React.Key[]) {
@@ -112,7 +116,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     } catch (e) {
       const err = e as { body?: { message?: string }; errorFields?: unknown }
       if (err.errorFields) { setBusy(false); return } // 表单校验失败:保持打开
-      const msg = err.body?.message ?? '应用失败'
+      const msg = err.body?.message ?? t.applyFailed
       setError(msg); message.error(msg)
     } finally {
       setBusy(false)
@@ -122,29 +126,37 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   return (
     <Modal
       open
-      title="设置"
-      okText="应用"
-      cancelText="取消"
+      title={t.settings}
+      okText={t.apply}
+      cancelText={t.cancel}
       confirmLoading={busy}
       onOk={apply}
       onCancel={onClose}
       maskClosable={!busy}
     >
       <Form form={form} layout="vertical" initialValues={{ sortMode: 'path', titleSource: 'heading' }}>
+        <Form.Item label={t.language}>
+          <Select
+            value={lang}
+            onChange={setLang}
+            options={LANGS.map((l) => ({ value: l, label: LANG_LABELS[l] }))}
+          />
+        </Form.Item>
+
         {browser ? (
-          <Form.Item label="书库来源">
+          <Form.Item label={t.librarySource}>
             <SourcePicker onOpened={onClose} />
           </Form.Item>
         ) : (
           <>
-            <Form.Item label="根目录" name="root" rules={[{ required: true, message: '请输入或选择根目录' }]}>
-              <Input placeholder="包含 .md / .txt 的文件夹，或单个文本文件" />
+            <Form.Item label={t.rootDir} name="root" rules={[{ required: true, message: t.rootDirRequired }]}>
+              <Input placeholder={t.rootDirPlaceholder} />
             </Form.Item>
 
-            <Form.Item label="目录浏览">
+            <Form.Item label={t.browseDirs}>
               <Space style={{ marginBottom: 8 }} wrap>
                 <Button size="small" icon={<UpOutlined />} disabled={parent == null} onClick={() => parent != null && void loadRoot(parent)}>
-                  上级目录
+                  {t.parentDir}
                 </Button>
                 {drives.map((d) => (
                   <Button key={d} size="small" onClick={() => void loadRoot(d)}>{d}</Button>
@@ -163,31 +175,31 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                     onSelect={onTreeSelect}
                   />
                 ) : browseErr ? (
-                  <Typography.Text type="secondary">（无法浏览此位置）</Typography.Text>
+                  <Typography.Text type="secondary">{t.cannotBrowseHere}</Typography.Text>
                 ) : (
-                  <Typography.Text type="secondary">（加载中…）</Typography.Text>
+                  <Typography.Text type="secondary">{t.loading}</Typography.Text>
                 )}
               </div>
             </Form.Item>
           </>
         )}
 
-        <Form.Item label="章节顺序" name="sortMode" extra="通常用默认即可。文件名带编号(如 第001章)时最准。">
+        <Form.Item label={t.chapterOrder} name="sortMode" extra={t.chapterOrderHint}>
           <Select
             options={[
-              { value: 'path', label: '按文件名(默认)' },
-              { value: 'global', label: '按标题统一排序' },
-              { value: 'volume', label: '按卷分组(子文件夹作为卷)' },
-              { value: 'manual', label: '手动拖动排序' },
+              { value: 'path', label: t.orderByFilename },
+              { value: 'global', label: t.orderByTitle },
+              { value: 'volume', label: t.orderByVolume },
+              { value: 'manual', label: t.orderManual },
             ]}
           />
         </Form.Item>
 
-        <Form.Item label="章节标题取自" name="titleSource" extra="没有标题行的文件会自动用文件名。">
+        <Form.Item label={t.titleSource} name="titleSource" extra={t.titleSourceHint}>
           <Select
             options={[
-              { value: 'heading', label: '正文里的标题' },
-              { value: 'filename', label: '文件名' },
+              { value: 'heading', label: t.titleFromHeading },
+              { value: 'filename', label: t.titleFromFilename },
             ]}
           />
         </Form.Item>

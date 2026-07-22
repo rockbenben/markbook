@@ -13,6 +13,7 @@ type Recent = { id: number; name: string; kind: string }
  * 选择文件夹 / 文件(可编辑)+ 上传文件夹 / 文件(只读)。同时用于空状态首屏与设置面板。
  */
 export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
+  const t = useStore((s) => s.t)
   const setChapters = useStore((s) => s.setChapters)
   const [recents, setRecents] = useState<Recent[]>([])
   const [busy, setBusy] = useState(false)
@@ -44,37 +45,36 @@ export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
     try { await afterOpen(await fn()) } catch { setError(errMsg) } finally { setBusy(false) }
   }
 
-  const pickFolder = () => run(async () => !!(await api.pickRoot?.()), '读取文件夹失败,请重试')
-  const pickFile = () => run(async () => !!(await api.pickFile?.()), '读取文件失败,请重试')
+  const pickFolder = () => run(async () => !!(await api.pickRoot?.()), t.readFolderFailed)
+  const pickFile = () => run(async () => !!(await api.pickFile?.()), t.readFileFailed)
   const onFolderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : []
-    if (files.length) void run(async () => !!(await api.loadFiles?.(files)), '读取文件夹失败,请重试')
+    if (files.length) void run(async () => !!(await api.loadFiles?.(files)), t.readFolderFailed)
   }
   const onFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
-    if (f) void run(async () => !!(await api.loadSingleFile?.(f)), '读取文件失败,请重试')
+    if (f) void run(async () => !!(await api.loadSingleFile?.(f)), t.readFileFailed)
   }
   const openRecent = (id: number) => run(async () => {
     const ok = await api.openRecent?.(id)
-    if (!ok) setError('无法打开,可能需要重新授权或该位置已不可用')
+    if (!ok) setError(t.cannotOpenReauth)
     return ok
-  }, '打开失败,请重试')
+  }, t.openFailed)
   const removeRecent = (id: number) => { void api.removeRecent?.(id)?.then(refreshRecents) }
-  const openSample = () => run(async () => { await api.loadSample?.(); return true }, '加载示例失败')
+  const openSample = () => run(async () => { await api.loadSample?.(); return true }, t.loadSampleFailed)
 
   return (
     <Space direction="vertical" size="middle" className="mb-source" style={{ width: '100%', maxWidth: 460 }}>
       <div className="mb-trust">
         <LockOutlined />
         <span>
-          <b>纯本地 · 零上传</b> —— 文件只在本浏览器内打开,绝不上传到任何服务器;
-          阅读偏好、书签、进度、最近打开都保存在本机,下次自动恢复。
+          <b>{t.localOnlyBadge}</b> —— {t.trustNote}
         </span>
       </div>
 
       {recents.length > 0 ? (
         <div style={{ textAlign: 'left' }}>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>最近打开</Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t.recentSources}</Typography.Text>
           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {recents.map((r) => (
               <Tag
@@ -96,15 +96,15 @@ export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
       <Space wrap>
         {fsAccess ? (
           <>
-            <Button type="primary" icon={<FolderOutlined />} onClick={pickFolder} loading={busy}>打开文件夹</Button>
+            <Button type="primary" icon={<FolderOutlined />} onClick={pickFolder} loading={busy}>{t.openFolder}</Button>
             {filePicker ? (
-              <Button icon={<FileTextOutlined />} onClick={pickFile} loading={busy}>打开单个文件</Button>
+              <Button icon={<FileTextOutlined />} onClick={pickFile} loading={busy}>{t.openSingleFile}</Button>
             ) : null}
           </>
         ) : (
           <>
-            <Button type="primary" icon={<FolderOutlined />} onClick={() => uploadFolderRef.current?.click()} loading={busy}>打开文件夹</Button>
-            <Button icon={<FileTextOutlined />} onClick={() => uploadFileRef.current?.click()} loading={busy}>打开单个文件</Button>
+            <Button type="primary" icon={<FolderOutlined />} onClick={() => uploadFolderRef.current?.click()} loading={busy}>{t.openFolder}</Button>
+            <Button icon={<FileTextOutlined />} onClick={() => uploadFileRef.current?.click()} loading={busy}>{t.openSingleFile}</Button>
           </>
         )}
         <input ref={uploadFolderRef} type="file" multiple style={{ display: 'none' }} onChange={onFolderUpload} />
@@ -112,14 +112,12 @@ export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
       </Space>
 
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        {fsAccess
-          ? '选一个含 .md / .txt 的文件夹,或单个文本文件,即可阅读与编辑。'
-          : '此浏览器为只读阅读;用 Chrome / Edge 打开,可直接编辑并保存回原文件。'}
+        {fsAccess ? t.sourceIntro : t.readOnlyHint}
       </Typography.Text>
 
       {api.loadSample ? (
         <Button type="link" size="small" style={{ padding: 0, alignSelf: 'flex-start' }} onClick={openSample} loading={busy}>
-          没有现成文件?先看看示例 →
+          {t.trySample}
         </Button>
       ) : null}
       {error ? <Alert type="error" showIcon message={error} /> : null}

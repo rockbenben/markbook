@@ -10,6 +10,7 @@ import type { Chapter, ChapterExt } from '../../../shared/types'
 import { cleanBody, toParagraphs, isLargeText, paginate, PAGE_CHARS, frontmatterTags } from '../../../core/render'
 import { resolveChapterLink, resolveRelPath, isExternalHref } from '../../../core/links'
 import { api } from '../api'
+import { fmt } from '../i18n'
 import { useStore, type ViewMode } from '../store'
 
 /** 相对图片:把 `![](./img.png)` 的相对 src 经后端解析为可用 URL(目录模式);外链 / 绝对 / data: 照常。 */
@@ -89,6 +90,7 @@ function PageBody({ text, ext, chapterPath }: { text: string; ext: ChapterExt; c
 
 /** 超大单章:分页渲染,任一时刻只把一页放进 DOM,避免几十 MB 整章塞满 DOM。 */
 function PaginatedBody({ text, ext, chapterPath }: { text: string; ext: ChapterExt; chapterPath: string }) {
+  const t = useStore((s) => s.t)
   const pages = useMemo(() => paginate(text, PAGE_CHARS), [text])
   const [page, setPage] = useState(0)
   const p = Math.min(page, pages.length - 1)
@@ -96,9 +98,9 @@ function PaginatedBody({ text, ext, chapterPath }: { text: string; ext: ChapterE
     <>
       <PageBody text={pages[p]} ext={ext} chapterPath={chapterPath} />
       <nav className="chapter-pager">
-        <Button size="small" disabled={p === 0} onClick={() => setPage(p - 1)}>上一页</Button>
-        <span>第 {p + 1} / {pages.length} 页</span>
-        <Button size="small" disabled={p >= pages.length - 1} onClick={() => setPage(p + 1)}>下一页</Button>
+        <Button size="small" disabled={p === 0} onClick={() => setPage(p - 1)}>{t.prevPage}</Button>
+        <span>{fmt(t.pagePos, { page: p + 1, total: pages.length })}</span>
+        <Button size="small" disabled={p >= pages.length - 1} onClick={() => setPage(p + 1)}>{t.nextPage}</Button>
       </nav>
     </>
   )
@@ -113,6 +115,7 @@ function renderBody(chapter: Chapter, content: string) {
 }
 
 function ChapterBlockImpl({ chapter, view, content }: Props) {
+  const t = useStore((s) => s.t)
   // md frontmatter 标签(随章节元数据显示在标题下)。
   const tags = chapter.ext === 'md' && content !== undefined ? frontmatterTags(content) : []
   return (
@@ -128,7 +131,7 @@ function ChapterBlockImpl({ chapter, view, content }: Props) {
         ) : null}
       </header>
       {content === undefined ? (
-        <p style={{ color: 'var(--muted)' }}>加载中…</p>
+        <p style={{ color: 'var(--muted)' }}>{t.loading}</p>
       ) : view === 'render' ? (
         renderBody(chapter, content)
       ) : (
