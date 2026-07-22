@@ -79,6 +79,29 @@ body { margin: 0; }
   padding-inline: 8px; font-weight: normal;
 }
 .cv-more .ant-btn:not(:disabled):hover { background: var(--active); }
+/* 菜单内的分节线:把「从顶栏收进来的控件」与「常驻的编辑/导出动作」分开。 */
+.cv-more-rule { height: 1px; margin: 4px 0; background: var(--border); }
+/* 排版/原文在窄档收进菜单,拉满宽度与其它条目对齐。 */
+.cv-more-seg .ant-segmented { width: 100%; }
+.cv-more-seg .ant-segmented-item { flex: 1; }
+
+/* 顶栏测量容器:ResizeObserver 观察它的宽度来决定收纳档位。 */
+.mb-toolbar { width: 100%; min-width: 0; }
+
+/* 顶栏分组线 = 订线:线—结—线,与章末分隔 .chapter::after、目录书脊 .mb-spine 同一纹样。
+   分组本身是信息,所以用签名纹样承载,而不是通用竖线。 */
+.mb-stitch-v {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 22px;
+  background:
+    /* 结用 --muted 而非品牌磁青:分隔线的本分是安静。在 22px 的发丝线上,
+       饱和色的结会读成一个悬浮圆点(像未读提示),而不是线上的结——
+       章末订线能用磁青,是因为它有 128px 的线撑着,结只占 2%。 */
+    radial-gradient(circle at 50% 50%, var(--muted) 0 1.1px, transparent 1.6px) center center / 4px 4px no-repeat,
+    linear-gradient(var(--border), var(--border)) center top / 1px 9px no-repeat,
+    linear-gradient(var(--border), var(--border)) center bottom / 1px 9px no-repeat;
+}
 
 /* 章内大纲:右上角浮动面板,仅当前 md 章有 ≥2 个子标题时显示;窄屏隐藏。 */
 .chapter-outline {
@@ -190,7 +213,18 @@ pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; backgroun
   line-height: 1;
   white-space: nowrap;
 }
-@media (max-width: 720px) { .mb-brand-en { display: none; } }
+/* 英文界面:「文集」文字字标隐去(标志图形里仍刻着这二字),拉丁名接管主标位置。 */
+.mb-brand-latin .mb-brand-en {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: inherit;
+}
+/* 最窄档只留标志图形。原先这里是 `@media (max-width: 720px)`,但顶栏其余控件都按
+   **容器宽度**收纳:目录展开时容器比视口窄 300px,两套断点会打架(容器 380 而视口 900 时
+   品牌文字不肯让位,顶栏就横向溢出)。统一由档位驱动,只留一个真相源。 */
+.mb-brand-compact .mb-brand-cn,
+.mb-brand-compact .mb-brand-en { display: none; }
 
 /* 目录侧栏右缘:订线(书脊缝线),替代实线边框。 */
 .mb-spine {
@@ -222,6 +256,11 @@ pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; backgroun
   line-height: 1;
   letter-spacing: 0.3em;
   text-indent: 0.3em; /* 抵消末字后的字距,保持视觉居中 */
+}
+/* 英文首屏的主字标是拉丁文:CJK 那套 0.3em 宽字距会把 MarkBook 拉散,收紧。 */
+.mb-hero-name-latin {
+  letter-spacing: 0.04em;
+  text-indent: 0.04em;
 }
 .mb-hero-latin {
   margin-top: 10px;
