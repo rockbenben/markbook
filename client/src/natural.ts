@@ -5,13 +5,13 @@ import type { Chapter } from '../../shared/types'
 // 跨边界 import server,故在此保留一份精简实现,用于 added 增量的就地排序自愈。
 
 const DIGIT_VALUE: Record<string, number> = {
-  '零': 0, '〇': 0, '一': 1, '壹': 1, '二': 2, '贰': 2, '两': 2, '三': 3, '叁': 3,
-  '四': 4, '肆': 4, '五': 5, '伍': 5, '六': 6, '陆': 6, '七': 7, '柒': 7,
+  '零': 0, '〇': 0, '一': 1, '壹': 1, '二': 2, '贰': 2, '貳': 2, '两': 2, '兩': 2, '三': 3, '叁': 3, '參': 3,
+  '四': 4, '肆': 4, '五': 5, '伍': 5, '六': 6, '陆': 6, '陸': 6, '七': 7, '柒': 7,
   '八': 8, '捌': 8, '九': 9, '玖': 9,
 }
 const SMALL_UNIT: Record<string, number> = { '十': 10, '拾': 10, '百': 100, '佰': 100, '千': 1000, '仟': 1000 }
 const SPECIAL_TENS: Record<string, number> = { '廿': 20, '卅': 30, '卌': 40 }
-const BIG_UNIT: Record<string, number> = { '万': 10000 }
+const BIG_UNIT: Record<string, number> = { '万': 10000, '萬': 10000 }
 const ZERO_CHARS = new Set(['零', '〇'])
 
 function isChineseNumeralChar(c: string): boolean {

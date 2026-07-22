@@ -16,6 +16,17 @@ describe('parseChineseNumber', () => {
     expect(parseChineseNumber('佰')).toBe(100)
     expect(parseChineseNumber('仟')).toBe(1000)
   })
+  it('繁体大写与萬(繁体书稿的章节名)', () => {
+    expect(parseChineseNumber('貳')).toBe(2)
+    expect(parseChineseNumber('兩')).toBe(2)
+    expect(parseChineseNumber('參')).toBe(3)
+    expect(parseChineseNumber('陸')).toBe(6)
+    expect(parseChineseNumber('一萬')).toBe(10000)
+    expect(parseChineseNumber('貳仟參佰')).toBe(2300)
+    // 简繁同值,排序时不该分先后
+    expect(parseChineseNumber('貳')).toBe(parseChineseNumber('贰'))
+    expect(naturalCompare('第貳章.md', '第參章.md')).toBeLessThan(0)
+  })
   it('十的组合', () => {
     expect(parseChineseNumber('十')).toBe(10)
     expect(parseChineseNumber('十一')).toBe(11)
