@@ -123,6 +123,10 @@ export const en: UIStrings = {
   indent: "First-line indent",
   language: "Language",
 
+  interfaceSection: "Interface",
+  librarySection: "Library",
+  appliesImmediately: "Takes effect right away",
+  appliesOnApply: "Rescans the library when you apply",
   apply: "Apply",
   applyFailed: "Could not apply",
   librarySource: "Library source",

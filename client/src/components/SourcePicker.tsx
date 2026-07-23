@@ -12,7 +12,7 @@ type Recent = { id: number; name: string; kind: string }
  * 静态(浏览器)模式下选择 / 切换书库的统一入口:隐私说明 + 最近来源(可一键切换)+
  * 选择文件夹 / 文件(可编辑)+ 上传文件夹 / 文件(只读)。同时用于空状态首屏与设置面板。
  */
-export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
+export function SourcePicker({ onOpened, compact }: { onOpened?: () => void; compact?: boolean }) {
   const t = useStore((s) => s.t)
   const setChapters = useStore((s) => s.setChapters)
   const [recents, setRecents] = useState<Recent[]>([])
@@ -65,12 +65,17 @@ export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
 
   return (
     <Space direction="vertical" size="middle" className="mb-source" style={{ width: '100%', maxWidth: 460 }}>
-      <div className="mb-trust">
-        <LockOutlined />
-        <span>
-          <b>{t.localOnlyBadge}</b> —— {t.trustNote}
-        </span>
-      </div>
+      {/* 隐私说明与「看看示例」是**首屏空态**的劝说文案:那里的人还没决定用不用。
+          设置里的人已经在用了,是来换书库的 —— 再讲一遍承诺、再劝他看示例,是把
+          营销文案复用到工具场景,只会把真正要点的两个按钮往下推。 */}
+      {compact ? null : (
+        <div className="mb-trust">
+          <LockOutlined />
+          <span>
+            <b>{t.localOnlyBadge}</b> —— {t.trustNote}
+          </span>
+        </div>
+      )}
 
       {recents.length > 0 ? (
         <div style={{ textAlign: 'left' }}>
@@ -111,11 +116,14 @@ export function SourcePicker({ onOpened }: { onOpened?: () => void }) {
         <input ref={uploadFileRef} type="file" accept=".md,.txt" style={{ display: 'none' }} onChange={onFileUpload} />
       </Space>
 
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        {fsAccess ? t.sourceIntro : t.readOnlyHint}
-      </Typography.Text>
+      {/* 紧凑模式仍保留只读提示 —— 那是能力限制,换书库前必须知道;介绍性的 sourceIntro 则省去。 */}
+      {compact && fsAccess ? null : (
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {fsAccess ? t.sourceIntro : t.readOnlyHint}
+        </Typography.Text>
+      )}
 
-      {api.loadSample ? (
+      {api.loadSample && !compact ? (
         <Button type="link" size="small" style={{ padding: 0, alignSelf: 'flex-start' }} onClick={openSample} loading={busy}>
           {t.trySample}
         </Button>

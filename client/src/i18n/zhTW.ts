@@ -128,6 +128,10 @@ export const zhTW: UIStrings = {
   indent: "首行縮排",
   language: "語言",
 
+  interfaceSection: "介面",
+  librarySection: "書庫",
+  appliesImmediately: "選完立即生效",
+  appliesOnApply: "點「套用」後重新掃描書庫",
   apply: "套用",
   applyFailed: "套用失敗",
   librarySource: "書庫來源",

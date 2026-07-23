@@ -1,4 +1,4 @@
-import { Button, Flex, Popover, Segmented, Slider, Space, Switch, Typography } from 'antd'
+import { Button, Popover, Segmented, Slider, Space, Switch, Typography } from 'antd'
 import { FontSizeOutlined } from '@ant-design/icons'
 import { useStore, type FontFamilyPref, type PaperPref } from '../store'
 import { fmt, type UIStrings } from '../i18n'
@@ -24,11 +24,19 @@ const PAPER_OPTIONS: { label: keyof UIStrings; value: PaperPref }[] = [
   { label: 'paperNight', value: 'night' },
 ]
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * 设置行。默认标签在上、控件占满宽度;inline 用于开关这类窄控件,标签与控件左右分置。
+ * 原先「首行缩进」那一行自己写了一套 Flex,和其余五行两套写法并存。
+ */
+function Row(
+  { label, hint, inline, children }:
+  { label: string; hint?: string; inline?: boolean; children: React.ReactNode },
+) {
   return (
-    <div>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>{label}</Typography.Text>
-      <div style={{ marginTop: 4 }}>{children}</div>
+    <div className={inline ? 'mb-read-row mb-read-row-inline' : 'mb-read-row'}>
+      <Typography.Text type="secondary" className="mb-read-label">{label}</Typography.Text>
+      <div className="mb-read-control">{children}</div>
+      {hint ? <Typography.Text type="secondary" className="mb-read-hint">{hint}</Typography.Text> : null}
     </div>
   )
 }
@@ -72,7 +80,9 @@ function ReadingControls() {
           onChange={(maxWidth) => setReading({ maxWidth })}
         />
       </Row>
-      <Row label={t.paper}>
+      {/* 非「默认」背景会锁住顶栏的明暗切换。原先只有那个禁用按钮的 tooltip 解释,
+          用户先看到的是「按钮为什么是灰的」,而原因在这里 —— 把说明放到因的一侧。 */}
+      <Row label={t.paper} hint={reading.paper !== 'default' ? t.themeLockedHint : undefined}>
         <Segmented<PaperPref>
           block
           options={PAPER_OPTIONS.map((o) => ({ ...o, label: t[o.label] }))}
@@ -80,10 +90,9 @@ function ReadingControls() {
           onChange={(paper) => setReading({ paper })}
         />
       </Row>
-      <Flex align="center" justify="space-between">
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>{t.indent}</Typography.Text>
+      <Row label={t.indent} inline>
         <Switch checked={reading.indent} onChange={(indent) => setReading({ indent })} />
-      </Flex>
+      </Row>
     </Space>
   )
 }

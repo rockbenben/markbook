@@ -140,6 +140,10 @@ export interface UIStrings {
   language: string;
 
   /* 设置弹窗 */
+  interfaceSection: string;
+  librarySection: string;
+  appliesImmediately: string;
+  appliesOnApply: string;
   apply: string;
   applyFailed: string;
   librarySource: string;

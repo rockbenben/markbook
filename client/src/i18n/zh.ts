@@ -122,6 +122,10 @@ export const zh: UIStrings = {
   indent: "首行缩进",
   language: "语言",
 
+  interfaceSection: "界面",
+  librarySection: "书库",
+  appliesImmediately: "选完立即生效",
+  appliesOnApply: "点「应用」后重新扫描书库",
   apply: "应用",
   applyFailed: "应用失败",
   librarySource: "书库来源",

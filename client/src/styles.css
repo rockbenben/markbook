@@ -87,6 +87,41 @@ body { margin: 0; }
 .cv-more-seg .ant-segmented { width: 100%; }
 .cv-more-seg .ant-segmented-item { flex: 1; }
 
+/* ── 设置弹窗:按「提交语义」分节 ──
+   上节即时生效、下节要点「应用」,分界用横向订线承载(与章末 .chapter::after 同纹样,
+   只是压扁到分节尺度),让「应用」的管辖范围一眼可见。 */
+.mb-set-sec { display: block; }
+.mb-set-title {
+  margin: 0;
+  font-family: var(--mb-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+.mb-set-hint { display: block; font-size: 12px; margin-bottom: 12px; }
+/* 即时生效那节的行:标签与控件左右分置,和下方 Form 的「标签在上」形成区分。 */
+.mb-set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mb-stitch-h {
+  height: 5px;
+  margin: 18px 0;
+  background:
+    radial-gradient(circle at 50% 50%, var(--muted) 0 1.4px, transparent 1.9px) center center / 5px 5px no-repeat,
+    linear-gradient(var(--border), var(--border)) left center / calc(50% - 8px) 1px no-repeat,
+    linear-gradient(var(--border), var(--border)) right center / calc(50% - 8px) 1px no-repeat;
+}
+/* 阅读设置浮层的行:默认标签在上;inline 用于开关这类窄控件,左右分置。 */
+.mb-read-label { font-size: 12px; }
+.mb-read-control { margin-top: 4px; }
+.mb-read-hint { display: block; margin-top: 4px; font-size: 12px; line-height: 1.5; }
+.mb-read-row-inline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mb-read-row-inline .mb-read-control { margin-top: 0; }
+
+/* 目录树容器:限高内滚,避免长目录把弹窗撑破。 */
+.mb-dirtree {
+  max-height: 240px; overflow: auto;
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px;
+}
+
 /* 顶栏测量容器:ResizeObserver 观察它的宽度来决定收纳档位。 */
 .mb-toolbar { width: 100%; min-width: 0; }
 

@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Alert, App, Button, Form, Input, Modal, Select, Space, Tree, Typography } from 'antd'
-import { FolderOutlined, FileTextOutlined, UpOutlined } from '@ant-design/icons'
-import type { TreeDataNode } from 'antd'
+import { Alert, App, Form, Input, Modal, Select, Typography } from 'antd'
 import { api } from '../api'
 import { useStore } from '../store'
 import { LANGS, LANG_LABELS } from '../i18n'
 import { SourcePicker } from './SourcePicker'
+import { DirectoryBrowser } from './DirectoryBrowser'
 import type { AppConfig, SortMode } from '../../../shared/types'
 
 interface FormValues {
@@ -14,30 +13,26 @@ interface FormValues {
   titleSource: AppConfig['titleSource']
 }
 
-/** 不可变更新:把 key 节点的 children 设为给定值。 */
-function setNodeChildren(list: TreeDataNode[], key: React.Key, children: TreeDataNode[]): TreeDataNode[] {
-  return list.map((node) => {
-    if (node.key === key) return { ...node, children }
-    if (node.children) return { ...node, children: setNodeChildren(node.children, key, children) }
-    return node
-  })
+/** 节标题:分节本身承载「这一节归谁管」的信息,不是装饰。 */
+function Section({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-set-sec">
+      <h3 className="mb-set-title">{title}</h3>
+      <Typography.Text type="secondary" className="mb-set-hint">{hint}</Typography.Text>
+      {children}
+    </section>
+  )
 }
 
-function dirNode(path: string, label?: string): TreeDataNode {
-  return { key: path, title: label ?? path, icon: <FolderOutlined />, isLeaf: false }
-}
-// 单文件 root:.md/.txt 文件作为可选叶子节点(不同图标,不可展开)。
-function fileNode(path: string, label: string): TreeDataNode {
-  return { key: path, title: label, icon: <FileTextOutlined />, isLeaf: true }
-}
-/** 把 browse 结果的 dirs+files 组装成树子节点(目录在前)。 */
-function childrenOf(basePath: string, dirs: string[], files: string[] | undefined): TreeDataNode[] {
-  return [
-    ...dirs.map((d) => dirNode(basePath + '/' + d, d)),
-    ...(files ?? []).map((f) => fileNode(basePath + '/' + f, f)),
-  ]
-}
-
+/**
+ * 设置弹窗。
+ *
+ * 分两节,分界依据是**提交语义**而非主题:
+ *   界面 —— 选完立即生效,不受下方「应用」管辖。语言尤其如此:看不懂当前语言的人
+ *           需要选完马上看到界面变化来确认选对了,让他去找一个读不懂的按钮是反的。
+ *   书库 —— 要重扫 / 重排整个书库,必须显式「应用」,「取消」则原样退出。
+ * 两节之间用订线(与章末分隔同纹样)隔开,让「应用」的管辖范围一眼可见。
+ */
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
@@ -47,40 +42,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const setChapters = useStore((s) => s.setChapters)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [initialRoot, setInitialRoot] = useState<string | undefined>()
   // 浏览器(静态)模式:来源选择交给 SourcePicker;服务端模式用目录树。
   const browser = api.mode === 'browser'
-
-  // ── 服务端模式:目录浏览树 ──
-  const [treeData, setTreeData] = useState<TreeDataNode[]>([])
-  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
-  const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([])
-  const [parent, setParent] = useState<string | null>(null)
-  const [drives, setDrives] = useState<string[]>([])
-  const [browseErr, setBrowseErr] = useState<string | null>(null)
-
-  async function loadRoot(p?: string) {
-    setBrowseErr(null)
-    try {
-      const b = await api.browse(p)
-      setTreeData([{ ...dirNode(b.path), children: childrenOf(b.path, b.dirs, b.files) }])
-      setExpandedKeys([b.path]); setSelectedKeys([b.path]); setParent(b.parent); setDrives(b.drives ?? [])
-    } catch (e) {
-      setBrowseErr((e as { body?: { message?: string } }).body?.message ?? t.browseFailed)
-    }
-  }
-  async function loadData(node: TreeDataNode): Promise<void> {
-    if (node.isLeaf || (node.children && node.children.length)) return
-    try {
-      const b = await api.browse(node.key as string)
-      setTreeData((origin) => setNodeChildren(origin, node.key, childrenOf(b.path, b.dirs, b.files)))
-    } catch (e) {
-      setBrowseErr((e as { body?: { message?: string } }).body?.message ?? t.browseFailed)
-    }
-  }
-  function onTreeSelect(keys: React.Key[]) {
-    if (keys[0] == null) return
-    setSelectedKeys(keys); form.setFieldsValue({ root: String(keys[0]) })
-  }
 
   useEffect(() => {
     let alive = true
@@ -89,7 +53,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         const cfg = await api.getConfig()
         if (!alive) return
         form.setFieldsValue({ root: cfg.root, sortMode: cfg.sortMode, titleSource: cfg.titleSource })
-        if (!browser) await loadRoot(cfg.root || undefined) // 浏览器模式无服务端目录树
+        setInitialRoot(cfg.root)
       } catch { /* 预填失败保持默认 */ }
     })()
     return () => { alive = false }
@@ -99,19 +63,16 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   async function apply() {
     setBusy(true); setError(null)
     try {
-      if (browser) {
-        // 来源已由 SourcePicker 载入;此处只持久化排序 / 标题来源并刷新列表。
-        const v = form.getFieldsValue()
-        const cfg = await api.setConfig({ sortMode: v.sortMode, titleSource: v.titleSource })
-        useStore.getState().applySortConfig(cfg.root, cfg.sortMode)
-        setChapters(await api.chapters())
-        onClose()
-        return
-      }
-      const v = await form.validateFields()
-      const cfg = await api.setConfig({ root: v.root, sortMode: v.sortMode, titleSource: v.titleSource })
+      // 浏览器模式的来源已由 SourcePicker 载入,这里只落库排序 / 标题来源;
+      // 服务端模式还要校验并提交根目录,章节列表随后由 WS reset 广播刷新。
+      const v = browser ? form.getFieldsValue() : await form.validateFields()
+      const cfg = await api.setConfig({
+        ...(browser ? {} : { root: v.root }),
+        sortMode: v.sortMode,
+        titleSource: v.titleSource,
+      })
       useStore.getState().applySortConfig(cfg.root, cfg.sortMode)
-      // 服务端模式:章节列表由 WS reset 广播自动更新
+      if (browser) setChapters(await api.chapters())
       onClose()
     } catch (e) {
       const err = e as { body?: { message?: string }; errorFields?: unknown }
@@ -133,79 +94,65 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       onOk={apply}
       onCancel={onClose}
       maskClosable={!busy}
+      width={520}
     >
-      <Form form={form} layout="vertical" initialValues={{ sortMode: 'path', titleSource: 'heading' }}>
-        <Form.Item label={t.language}>
+      <Section title={t.interfaceSection} hint={t.appliesImmediately}>
+        <label className="mb-set-row">
+          <span>{t.language}</span>
           <Select
             value={lang}
             onChange={setLang}
+            style={{ width: 180 }}
             options={LANGS.map((l) => ({ value: l, label: LANG_LABELS[l] }))}
           />
-        </Form.Item>
+        </label>
+      </Section>
 
-        {browser ? (
-          <Form.Item label={t.librarySource}>
-            <SourcePicker onOpened={onClose} />
+      <div className="mb-stitch-h" aria-hidden />
+
+      <Section title={t.librarySection} hint={t.appliesOnApply}>
+        <Form form={form} layout="vertical" initialValues={{ sortMode: 'path', titleSource: 'heading' }}>
+          {browser ? (
+            <Form.Item label={t.librarySource}>
+              <SourcePicker onOpened={onClose} compact />
+            </Form.Item>
+          ) : (
+            <>
+              <Form.Item label={t.rootDir} name="root" rules={[{ required: true, message: t.rootDirRequired }]}>
+                <Input placeholder={t.rootDirPlaceholder} />
+              </Form.Item>
+              <Form.Item label={t.browseDirs}>
+                <DirectoryBrowser
+                  initialPath={initialRoot}
+                  onSelect={(root) => form.setFieldsValue({ root })}
+                />
+              </Form.Item>
+            </>
+          )}
+
+          <Form.Item label={t.chapterOrder} name="sortMode" extra={t.chapterOrderHint}>
+            <Select
+              options={[
+                { value: 'path', label: t.orderByFilename },
+                { value: 'global', label: t.orderByTitle },
+                { value: 'volume', label: t.orderByVolume },
+                { value: 'manual', label: t.orderManual },
+              ]}
+            />
           </Form.Item>
-        ) : (
-          <>
-            <Form.Item label={t.rootDir} name="root" rules={[{ required: true, message: t.rootDirRequired }]}>
-              <Input placeholder={t.rootDirPlaceholder} />
-            </Form.Item>
 
-            <Form.Item label={t.browseDirs}>
-              <Space style={{ marginBottom: 8 }} wrap>
-                <Button size="small" icon={<UpOutlined />} disabled={parent == null} onClick={() => parent != null && void loadRoot(parent)}>
-                  {t.parentDir}
-                </Button>
-                {drives.map((d) => (
-                  <Button key={d} size="small" onClick={() => void loadRoot(d)}>{d}</Button>
-                ))}
-              </Space>
-              {browseErr ? <Alert type="warning" showIcon message={browseErr} style={{ marginBottom: 8 }} /> : null}
-              <div style={{ maxHeight: 240, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 6, padding: 4 }}>
-                {treeData.length ? (
-                  <Tree
-                    showIcon
-                    loadData={loadData}
-                    treeData={treeData}
-                    expandedKeys={expandedKeys}
-                    onExpand={(keys) => setExpandedKeys(keys)}
-                    selectedKeys={selectedKeys}
-                    onSelect={onTreeSelect}
-                  />
-                ) : browseErr ? (
-                  <Typography.Text type="secondary">{t.cannotBrowseHere}</Typography.Text>
-                ) : (
-                  <Typography.Text type="secondary">{t.loading}</Typography.Text>
-                )}
-              </div>
-            </Form.Item>
-          </>
-        )}
+          <Form.Item label={t.titleSource} name="titleSource" extra={t.titleSourceHint}>
+            <Select
+              options={[
+                { value: 'heading', label: t.titleFromHeading },
+                { value: 'filename', label: t.titleFromFilename },
+              ]}
+            />
+          </Form.Item>
 
-        <Form.Item label={t.chapterOrder} name="sortMode" extra={t.chapterOrderHint}>
-          <Select
-            options={[
-              { value: 'path', label: t.orderByFilename },
-              { value: 'global', label: t.orderByTitle },
-              { value: 'volume', label: t.orderByVolume },
-              { value: 'manual', label: t.orderManual },
-            ]}
-          />
-        </Form.Item>
-
-        <Form.Item label={t.titleSource} name="titleSource" extra={t.titleSourceHint}>
-          <Select
-            options={[
-              { value: 'heading', label: t.titleFromHeading },
-              { value: 'filename', label: t.titleFromFilename },
-            ]}
-          />
-        </Form.Item>
-
-        {error ? <Alert type="error" showIcon message={error} /> : null}
-      </Form>
+          {error ? <Alert type="error" showIcon message={error} /> : null}
+        </Form>
+      </Section>
     </Modal>
   )
 }
