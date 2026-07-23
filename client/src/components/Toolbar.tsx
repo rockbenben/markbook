@@ -17,7 +17,6 @@ import { SettingsPanel } from './SettingsPanel'
 import { ReadingSettings } from './ReadingSettings'
 import { ExportModal } from './ExportModal'
 import { RecentMenu } from './RecentMenu'
-import { LangSwitch } from './LangSwitch'
 
 const REPO_URL = 'https://github.com/rockbenben/markbook'
 
@@ -148,7 +147,7 @@ function MoreMenu({ extra }: { extra?: (close: () => void) => ReactNode }) {
   )
   return (
     <Popover content={content} trigger="click" placement="bottomRight" open={open} onOpenChange={openMenu}>
-      {/* 展开时强制收起 tooltip,否则它会盖住菜单第一项(与 LangSwitch 同一处理)。 */}
+      {/* 展开时强制收起 tooltip,否则它会盖住菜单第一项(与设置弹窗里的浮层同一处理)。 */}
       <Tooltip title={t.more} open={tipOpen && !open} onOpenChange={setTipOpen}>
         <Button type="text" icon={<EllipsisOutlined />} aria-label={t.more} />
       </Tooltip>
@@ -292,8 +291,6 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
 
         {!minimal ? <Stitch /> : null}
 
-        {/* 语言是设置一次的偏好:最窄档让位给阅读控件,改从 更多 → 设置 → 语言 进入。 */}
-        {!minimal ? <LangSwitch /> : null}
         <Tooltip title={themeLocked ? t.themeLockedHint : theme === 'light' ? t.toDark : t.toLight}>
           {/* 禁用的 Button 有 pointer-events:none,不会触发 hover;用 span 包裹让 Tooltip 仍能显示。 */}
           <span style={{ display: 'inline-flex', cursor: themeLocked ? 'not-allowed' : undefined }}>

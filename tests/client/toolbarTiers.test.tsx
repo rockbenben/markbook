@@ -76,12 +76,14 @@ describe('Toolbar 按档位收纳', () => {
     expect(document.querySelector('.mb-brand svg')).toBeTruthy()
   })
 
-  it('minimal:语言按钮让位,仍可从设置面板进入', () => {
-    renderAt(600)
-    expect(document.querySelector('.mb-toolbar [aria-label^="语言"]')).toBeNull()
-    // 兜底路径:设置面板里有语言下拉(服务端 / 静态两种模式都有)。
-    fireEvent.click(document.querySelector('.mb-toolbar [aria-label="更多"]')!)
-    expect(screen.getByText('设置')).toBeTruthy()
+  it('语言不再占顶栏位置,任何档位都只从设置进入', () => {
+    // 设置一次就不再碰的偏好不该常驻顶栏;设置弹窗的「界面」节里有语言下拉。
+    for (const w of [1400, 900, 600]) {
+      const { unmount } = renderAt(w)
+      expect(document.querySelector('.mb-toolbar [aria-label^="语言"]'), `${w}px`).toBeNull()
+      unmount()
+      vi.restoreAllMocks()
+    }
   })
 
   it('收起的控件在「更多」里可达,且带文字标签', async () => {

@@ -1,7 +1,7 @@
 /**
  * 界面语言。
  *
- * 默认跟随浏览器语言，用户在「设置」或顶栏语言按钮里改后存进 localStorage。
+ * 默认跟随浏览器语言，用户在「设置 → 界面」里改后存进 localStorage。
  * 与 store 里的阅读偏好分开存 —— 语言不是阅读偏好，换书不该重置。
  */
 import type { UIStrings } from "./types";
@@ -18,13 +18,6 @@ export const LANG_LABELS: Record<Lang, string> = {
   zh: "简体中文",
   "zh-TW": "繁體中文",
   en: "English",
-};
-
-/** 语言按钮上的短标记，图标旁只放两三个字符。 */
-export const LANG_SHORT: Record<Lang, string> = {
-  zh: "简",
-  "zh-TW": "繁",
-  en: "EN",
 };
 
 /**
