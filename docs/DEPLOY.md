@@ -42,6 +42,22 @@ python -m http.server 8080 --directory dist/static
 
 > 静态构建用相对 `base`(`./`),即便托管在 `…/<仓库名>/` 子路径下,资源与 Service Worker 也能正确加载,无需改配置。工作流用内置的 `GITHUB_TOKEN`(`permissions: contents: write`),不需要额外密钥。
 
+### 静态托管的缓存规则(任意 CDN 通用)
+
+部署后的响应头决定第二次访问是「秒开」还是「每个文件再问一次服务器」。产物天然分两类,规则照这两类下:
+
+| 文件 | 该怎么缓存 | 为什么 |
+|---|---|---|
+| `assets/*`(名字里带内容哈希) | `public, max-age=31536000, immutable` | 内容一变名字就变,老 URL 永远不会被复用,所以敢缓存一年 |
+| `index.html` / `sw.js` / `registerSW.js` / `manifest.webmanifest` | `max-age=0, must-revalidate` | 版本更新全靠这几个先问到新的;把它们缓存住,`autoUpdate` 的 Service Worker 就废了 |
+| 其余固定名字的静态文件(`icon.svg`、`icon-*.png`、`social-card.png`、`robots.txt`) | 小时~天级的长缓存 | 很少变,但名字不变,所以别缓存一年 |
+
+三条会静默生效的坑:
+
+- **哈希类的规则要按目录前缀整批下**(`assets/`),不要按文件名逐个列。每次构建都换一批哈希名,漏掉哪一个,那个文件就变成每次访问都要回源确认一次。
+- **SPA 回退会把「不存在」伪装成 200**:回退到 `index.html` 之后,`/robots.txt`、`/sitemap.xml` 这类路径返回的是一页 HTML 外壳 + `200`,爬虫读到的是正文。仓库里 `client/public/robots.txt` 就是让那个路径真的存在;不需要 sitemap 也别让它 200(要么给真文件,要么让它 404)。
+- **验证口径是响应头,不是「能打开」**:直接 `curl -I` 看 `Cache-Control`;走 CDN 时再核一次命中字段(如 `EO-Cache-Status` / `x-cache`)和 `Content-Encoding` 是否真在发 brotli/gzip。探针请求要**别带随机 query**——那会自己把缓存打穿,量出来全是 Miss。
+
 ### 浏览器支持与能力
 
 - **来源**:可选**文件夹**(每文件一章)或**单个大文件**(按标题拆章),两者皆可编辑。**「打开文件夹 / 打开单个文件」**在 **Chrome / Edge** 等 Chromium 上走 File System Access API(`showDirectoryPicker` / `showOpenFilePicker`),可就地编辑;**Firefox / Safari** 上同名按钮自动降级为只读(本地选取,仍可阅读 / 搜索 / 导出)。界面不出现「上传」字样,避免与「零上传」混淆。
