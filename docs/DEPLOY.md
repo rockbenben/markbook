@@ -58,6 +58,19 @@ python -m http.server 8080 --directory dist/static
 - **SPA 回退会把「不存在」伪装成 200**:回退到 `index.html` 之后,`/robots.txt`、`/sitemap.xml` 这类路径返回的是一页 HTML 外壳 + `200`,爬虫读到的是正文。仓库里 `client/public/robots.txt` 就是让那个路径真的存在;不需要 sitemap 也别让它 200(要么给真文件,要么让它 404)。
 - **验证口径是响应头,不是「能打开」**:直接 `curl -I` 看 `Cache-Control`;走 CDN 时再核一次命中字段(如 `EO-Cache-Status` / `x-cache`)和 `Content-Encoding` 是否真在发 brotli/gzip。探针请求要**别带随机 query**——那会自己把缓存打穿,量出来全是 Miss。
 
+### 本仓库怎么落这套规则:`client/public/edgeone.json`
+
+上表已经写成 EdgeOne Pages 的 `headers` 配置放在 `client/public/edgeone.json`(官方文档确认 `edgeone.json` 支持 `headers` + `Cache-Control`,并说 Cloudflare 的 `_headers` 对应这一项)。它经 `publicDir` 复制到产物根,与 `index.html` 同级。
+
+两点官方文档**没有写**、因此部署后要自己核:
+
+- **读取位置**:文档只说「创建一个 edgeone.json」,没说放仓库根还是产物根。这里选产物根,是因为线上是镜像 `gh-pages` 分支的构建产物(实测:边缘 `Last-Modified` 总比 CI 部署提交晚 20~30 秒),仓库根的那份不会出现在部署分支里。**若部署后 `/assets/*` 仍是 `max-age=0`,说明它没被读到**——把同一组规则填进控制台,或按官方要求把文件挪到仓库根再试。
+- **与控制台规则的优先级**:未文档化。这里刻意把入口类(`/`、`/index.html`、`/sw.js`、`/registerSW.js`、`/manifest.webmanifest`)也显式写成 `max-age=0, must-revalidate`,这样即使本文件把平台默认整个接管了,更新链路也不会被误缓存成一年。
+
+还有一条限制写在明处:workbox 生成的 `workbox-<hash>.js` 落在产物根而不是 `assets/` 下,**没法用前缀规则覆盖**——所以这里不放按文件名的规则(哈希每轮都变,规则会静默腐烂),它由 Service Worker 预缓存兜着,影响仅是回源确认一次。
+
+`/sitemap.xml` 同理给了真文件(`client/public/sitemap.xml`,只列站点根一条):SPA 回退下这个路径本来返回 200 的 HTML 壳,与其让它撒谎,不如让它存在。
+
 ### 浏览器支持与能力
 
 - **来源**:可选**文件夹**(每文件一章)或**单个大文件**(按标题拆章),两者皆可编辑。**「打开文件夹 / 打开单个文件」**在 **Chrome / Edge** 等 Chromium 上走 File System Access API(`showDirectoryPicker` / `showOpenFilePicker`),可就地编辑;**Firefox / Safari** 上同名按钮自动降级为只读(本地选取,仍可阅读 / 搜索 / 导出)。界面不出现「上传」字样,避免与「零上传」混淆。
