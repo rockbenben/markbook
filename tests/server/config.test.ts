@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { loadConfig, saveConfig, DEFAULT_IGNORE, pushRecentRoot } from '../../server/config'
+import { loadConfig, DEFAULT_IGNORE, pushRecentRoot } from '../../server/config'
 
 let dir: string
+/** 引导文件由人手放置(服务端不写),测试就用 writeFile 扮演那个人。 */
+const putConfig = (file: string, cfg: Record<string, unknown>) => writeFile(file, JSON.stringify(cfg), 'utf8')
 beforeEach(async () => { dir = await mkdtemp(path.join(os.tmpdir(), 'cv-cfg-')) })
 afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
 
@@ -16,26 +18,30 @@ describe('config', () => {
     expect(cfg.titleSource).toBe('heading')
     expect(cfg.ignore).toEqual(DEFAULT_IGNORE)
   })
-  it('saveConfig 后 loadConfig 能读回', async () => {
+  it('人手放置的引导文件被逐项读回,缺项回落默认', async () => {
     const file = path.join(dir, 'config.json')
-    await saveConfig(file, { root: '/x', ignore: ['**/*.tmp'], sortMode: 'volume', titleSource: 'filename' })
+    await putConfig(file, { root: '/x', ignore: ['**/*.tmp'], sortMode: 'volume', titleSource: 'filename' })
     const cfg = await loadConfig(file, '/fallback')
     expect(cfg.root).toBe('/x')
     expect(cfg.sortMode).toBe('volume')
+    expect(cfg.titleSource).toBe('filename')
+    expect(cfg.ignore).toEqual(['**/*.tmp'])
+    // 只读:loadConfig 不得改写文件
     expect(JSON.parse(await readFile(file, 'utf8')).sortMode).toBe('volume')
   })
-  it('saveConfig 会自动创建不存在的父目录', async () => {
-    const file = path.join(dir, 'nested', 'sub', 'config.json')
-    await saveConfig(file, { root: '/y', ignore: DEFAULT_IGNORE, sortMode: 'path', titleSource: 'heading' })
+  it('引导文件只给 root 时其余字段取默认', async () => {
+    const file = path.join(dir, 'partial.json')
+    await putConfig(file, { root: '/y' })
     const cfg = await loadConfig(file, '/fallback')
     expect(cfg.root).toBe('/y')
     expect(cfg.sortMode).toBe('path')
+    expect(cfg.ignore).toEqual(DEFAULT_IGNORE)
   })
-  it('recentRoots 缺省为空数组,可保存并读回', async () => {
+  it('recentRoots 缺省为空数组,写了就读得到', async () => {
     const cfg = await loadConfig(path.join(dir, 'config.json'), '/data')
     expect(cfg.recentRoots).toEqual([])
     const file = path.join(dir, 'c2.json')
-    await saveConfig(file, { root: '/x', ignore: DEFAULT_IGNORE, sortMode: 'path', titleSource: 'heading', recentRoots: ['/x', '/y'] })
+    await putConfig(file, { root: '/x', ignore: DEFAULT_IGNORE, sortMode: 'path', titleSource: 'heading', recentRoots: ['/x', '/y'] })
     expect((await loadConfig(file, '/fallback')).recentRoots).toEqual(['/x', '/y'])
   })
   it('损坏的 recentRoots(非数组 / 混入非字符串)被过滤为合法字符串数组', async () => {

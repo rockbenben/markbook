@@ -1,5 +1,4 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import path from 'node:path'
+import { readFile } from 'node:fs/promises'
 import type { AppConfig } from '../shared/types'
 
 export const DEFAULT_IGNORE = ['**/.*', '**/node_modules/**', '**/.git/**']
@@ -18,6 +17,10 @@ function readRecentRoots(raw: unknown): string[] {
   return Array.isArray(raw) ? raw.filter((r): r is string => typeof r === 'string') : []
 }
 
+/**
+ * 读取引导默认配置(只读)。服务端不持久化设置:root / 排序 / 标题来源由各浏览器
+ * 下发,所以这里没有对应的写函数 —— 加一个回来就等于制造一份会被多人共用的隐藏状态。
+ */
 export async function loadConfig(file: string, fallbackRoot: string): Promise<AppConfig> {
   try {
     const parsed = JSON.parse(await readFile(file, 'utf8')) as Partial<AppConfig>
@@ -31,9 +34,4 @@ export async function loadConfig(file: string, fallbackRoot: string): Promise<Ap
   } catch {
     return { root: fallbackRoot, ignore: DEFAULT_IGNORE, sortMode: 'path', titleSource: 'heading', recentRoots: [] }
   }
-}
-
-export async function saveConfig(file: string, cfg: AppConfig): Promise<void> {
-  await mkdir(path.dirname(file), { recursive: true })
-  await writeFile(file, JSON.stringify(cfg, null, 2), 'utf8')
 }
