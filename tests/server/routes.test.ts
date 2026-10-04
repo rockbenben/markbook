@@ -27,6 +27,27 @@ describe('routes', () => {
     expect(res.json().content).toContain('正文内容')
     expect(res.json().mtime).toBeGreaterThan(0)
   })
+  it('长中文路径的章节(id 越过 base64url 100 字符)仍能取到正文', async () => {
+    // 章节 id = 相对路径的 base64url,长度约为 UTF-8 字节的 4/3:二十几个汉字就顶到
+    // Fastify maxParamLength 的默认 100,整章被 414 掉,界面表现为永久「加载中」。
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'cv-longid-'))
+    try {
+      const sub = path.join(dir, '第十一章·风起云涌的那一年')
+      await mkdir(sub, { recursive: true })
+      const name = '02-一个非正常的词的关键词与主题及角色与场景描写与对白混合的章节与背景介绍.md'
+      await writeFile(path.join(sub, name), '# 长章\n长篇正文')
+      const app2 = await buildApp({ explicitRoot: dir, configFile: path.join(dir, '.cv.json') })
+      try {
+        const list = (await app2.inject({ method: 'GET', url: '/api/chapters' })).json()
+        const c = list.find((x: { path: string }) => x.path.includes(name))
+        expect(c).toBeTruthy()
+        expect(c.id.length).toBeGreaterThan(100) // 夹具确实越过默认上限,否则这条测试什么都没钉
+        const res = await app2.inject({ method: 'GET', url: `/api/chapters/${c.id}/raw` })
+        expect(res.statusCode).toBe(200)
+        expect(res.json().content).toContain('长篇正文')
+      } finally { await app2.close() }
+    } finally { await rm(dir, { recursive: true, force: true }) }
+  })
   it('PUT /api/chapters/:id 用过期 baseMtime 返回 409', async () => {
     const list = (await app.inject({ method: 'GET', url: '/api/chapters' })).json()
     const res = await app.inject({

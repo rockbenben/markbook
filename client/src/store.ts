@@ -134,6 +134,7 @@ interface State {
   loaded: boolean                           // 首次成功拉取 chapters 后(或任一 reset 到达)置 true,用于区分「仍在加载」与「已加载但确实为空」
   wsStatus: WSStatus                         // WS 连接状态,驱动 UI 指示器
   contentById: Record<string, ContentEntry> // 正文缓存,跨虚拟化卸载/重挂存活
+  contentErrorById: Record<string, true>   // 取正文已放弃的章节:界面据此显示「这一章没读到 + 重试」,而不是永久「加载中」
   contentNonce: number                      // 刷新计数:自增以促使可见章重取
   activeChapterId: string | null
   globalView: ViewMode
@@ -170,6 +171,12 @@ interface State {
   setManualOrder: (ids: string[]) => void
 }
 
+/** 不可变地删掉 map 里的一个 key。 */
+function dropKey<T>(map: Record<string, T>, key: string): Record<string, T> {
+  const { [key]: _drop, ...rest } = map
+  return rest
+}
+
 /** 随 chapters 一起推进正文缓存:reset 清空(剪枝陈旧项),removed 删除单项。 */
 function applyContent(
   cache: Record<string, ContentEntry>,
@@ -189,6 +196,7 @@ export const useStore = create<State>((set, get) => ({
   loaded: false,
   wsStatus: 'connecting',
   contentById: {},
+  contentErrorById: {},
   contentNonce: 0,
   activeChapterId: null,
   globalView: asViewMode(persisted.globalView),
@@ -223,6 +231,9 @@ export const useStore = create<State>((set, get) => ({
     // 切库/重连后若后端尚无手动序(如重启丢失),cv:reset → applySortConfig 会按本地序重排并回推。
     if (s.sortMode === 'manual' && msg.type !== 'reset') chapters = applyManualOrder(chapters, manualOrder)
     const contentById = applyContent(s.contentById, msg)
+    // 失败标记跟着正文缓存一起走:切库要清空(旧库的失败态不许盖在新库同 id 的章节上),
+    // 删除要摘掉那一项(否则 map 里留下指向已不存在章节的标记)。
+    const contentErrorById = msg.type === 'reset' ? {} : msg.type === 'removed' ? dropKey(s.contentErrorById, msg.id) : s.contentErrorById
     // reset/removed 会丢弃缓存条目:同步 LRU 顺序表,避免其指向已不存在的 id。
     if (msg.type === 'reset' || msg.type === 'removed') syncLru(contentById)
     // 任一 reset 到达(含连接快照)即视为已加载:可放心区分空库与加载中。
@@ -236,9 +247,9 @@ export const useStore = create<State>((set, get) => ({
     // 必须清空编辑草稿,否则旧章节的草稿会被下一次 startEditing(其它章节)误用,
     // 导致用旧内容覆盖另一个文件。
     if (s.editingId !== null && !chapters.some((c) => c.id === s.editingId)) {
-      return { chapters, contentById, loaded, manualOrder, editingId: null, editText: null, editBaseMtime: 0, ...nonce }
+      return { chapters, contentById, contentErrorById, loaded, manualOrder, editingId: null, editText: null, editBaseMtime: 0, ...nonce }
     }
-    return { chapters, contentById, loaded, manualOrder, ...nonce }
+    return { chapters, contentById, contentErrorById, loaded, manualOrder, ...nonce }
   }),
   ensureContent: (chapter, attempt = 0) => {
     const s = get()
@@ -246,6 +257,8 @@ export const useStore = create<State>((set, get) => ({
     if (s.contentById[chapter.id]?.mtime === chapter.mtime) return // 缓存命中
     if (inflight.has(chapter.id)) return              // 已在取
     inflight.add(chapter.id)
+    // 每一次重新发起都先撤掉失败标记:界面回到「加载中」,而不是停在上一趟放弃时那句话。
+    if (s.contentErrorById[chapter.id]) set((st) => ({ contentErrorById: dropKey(st.contentErrorById, chapter.id) }))
     void (async () => {
       try {
         const raw = await api.raw(chapter.id)
@@ -255,10 +268,13 @@ export const useStore = create<State>((set, get) => ({
           return { contentById: evictContent(next, st) }
         })
         inflight.delete(chapter.id)
-      } catch {
+      } catch (e) {
         // 取失败:有限次退避重试(应对 dev 启动期后端/代理尚未就绪),否则常驻可见章会永久卡「加载中」。
         // 关键:重试期间保留 inflight 占位,避免守卫打开后并行再取;仅在放弃/成功时清除。
-        if (attempt < 5) {
+        // 但 4xx 是「重发也是这个结果」(缺令牌 / 章节已没了 / id 超限),重试只会成串打请求,直接放弃。
+        const status = (e as { status?: number }).status
+        const permanent = status !== undefined && status >= 400 && status < 500
+        if (!permanent && attempt < 5) {
           const delay = Math.min(300 * 2 ** attempt, 3000)
           setTimeout(() => {
             inflight.delete(chapter.id)
@@ -267,12 +283,15 @@ export const useStore = create<State>((set, get) => ({
             get().ensureContent(chapter, attempt + 1)
           }, delay)
         } else {
+          // 放弃:把「读不到」作为数据记下来,界面才有东西可显示 —— 只清 inflight 的话,
+          // 那一章会一直顶着「加载中」,而它永远不会自己变好。
           inflight.delete(chapter.id)
+          set((st) => ({ contentErrorById: { ...st.contentErrorById, [chapter.id]: true } }))
         }
       }
     })()
   },
-  refreshContent: () => set((s) => { lruOrder.length = 0; return { contentById: {}, contentNonce: s.contentNonce + 1 } }),
+  refreshContent: () => set((s) => { lruOrder.length = 0; return { contentById: {}, contentErrorById: {}, contentNonce: s.contentNonce + 1 } }),
   setActive: (activeChapterId) => set({ activeChapterId }),
   applySortConfig: (root, sortMode) => {
     const manualOrder = loadManualOrder(root)

@@ -43,7 +43,10 @@ function assetMime(p: string): string {
 }
 
 export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false })
+  // maxParamLength 默认 100,而章节 id 是「相对路径的 base64url」(见 core/id.ts),
+  // 长度约为路径 UTF-8 字节数的 4/3:25 个汉字就顶到默认上限,整章直接 414 读不出来。
+  // 2048 足够容纳深目录 + 长中文文件名(Windows MAX_PATH 260 汉字 ≈ 1040),同时仍是硬上限。
+  const app = Fastify({ logger: false, routerOptions: { maxParamLength: 2048 } })
   await app.register(fastifyWebsocket)
 
   // 鉴权(opt-in):仅当配置了 token 时,守卫 /api 与 /ws;静态资源(前端外壳)不拦,以便加载后再带令牌。

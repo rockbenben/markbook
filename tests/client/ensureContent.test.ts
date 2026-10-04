@@ -8,7 +8,7 @@ const ch: Chapter = { id: 'x', path: 'a.md', volume: null, title: 't', ext: 'md'
 
 describe('ensureContent retry', () => {
   beforeEach(() => {
-    useStore.setState({ contentById: {}, editingId: null, chapters: [ch] })
+    useStore.setState({ contentById: {}, contentErrorById: {}, editingId: null, chapters: [ch] })
     ;(api.raw as any).mockReset()
   })
   it('首取失败后退避重试,最终加载正文', async () => {
@@ -42,6 +42,53 @@ describe('ensureContent retry', () => {
     vi.useRealTimers()
   })
 
+  it('放弃(退避用尽 / 4xx)会把「读不到」记成数据,而不是只清 inflight', async () => {
+    vi.useFakeTimers()
+    ;(api.raw as any).mockRejectedValue(new Error('boom'))
+    useStore.getState().ensureContent(ch)
+    await vi.runAllTimersAsync()
+    expect(useStore.getState().contentErrorById['x']).toBe(true)
+    vi.useRealTimers()
+
+    vi.useFakeTimers()
+    useStore.setState({ contentById: {}, contentErrorById: {} })
+    ;(api.raw as any).mockReset().mockRejectedValue(Object.assign(new Error('HTTP 404'), { status: 404 }))
+    useStore.getState().ensureContent(ch)
+    await vi.runAllTimersAsync()
+    expect(useStore.getState().contentErrorById['x']).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('重新发起时先撤失败标记;成功后标记与正文一起到位', async () => {
+    vi.useFakeTimers()
+    ;(api.raw as any).mockRejectedValue(Object.assign(new Error('HTTP 414'), { status: 414 }))
+    useStore.getState().ensureContent(ch)
+    await vi.runAllTimersAsync()
+    expect(useStore.getState().contentErrorById['x']).toBe(true)
+    vi.useRealTimers()
+
+    // 重试路径:下一次取一开始就把标记撤掉(界面先回「加载中」),取到正文后不再回来。
+    ;(api.raw as any).mockReset().mockResolvedValue({ content: '回来了', mtime: 5 })
+    useStore.getState().ensureContent(ch)
+    expect(useStore.getState().contentErrorById['x']).toBeUndefined()
+    await vi.waitFor(() => expect(useStore.getState().contentById['x']?.text).toBe('回来了'))
+    expect(useStore.getState().contentErrorById['x']).toBeUndefined()
+  })
+
+  it('refreshContent 与切库/删章都会清掉失败标记', () => {
+    useStore.setState({ contentErrorById: { x: true } })
+    useStore.getState().refreshContent()
+    expect(useStore.getState().contentErrorById).toEqual({})
+
+    useStore.setState({ contentErrorById: { x: true } })
+    useStore.getState().apply({ type: 'removed', id: 'x' })
+    expect(useStore.getState().contentErrorById['x']).toBeUndefined()
+
+    useStore.setState({ contentErrorById: { x: true } })
+    useStore.getState().apply({ type: 'reset', chapters: [] })
+    expect(useStore.getState().contentErrorById).toEqual({})
+  })
+
   it('refreshContent 清空缓存并自增 nonce(促使可见章重取)', () => {
     useStore.setState({ contentById: { x: { mtime: 1, text: 'old' } }, contentNonce: 0 })
     useStore.getState().refreshContent()
@@ -63,6 +110,29 @@ describe('ensureContent retry', () => {
     useStore.getState().ensureContent(ch)
     await vi.runAllTimersAsync()
     expect(useStore.getState().contentById['x']?.text).toBe('retried')
+    vi.useRealTimers()
+  })
+
+  it('4xx 是永久错误:不退避重试,只发起一次请求', async () => {
+    // 重试是为 dev 启动期的「后端还没起来」准备的。401/404/414 重发还是这个结果,
+    // 只会把同一章的请求串成一片。
+    vi.useFakeTimers()
+    ;(api.raw as any).mockRejectedValue(Object.assign(new Error('HTTP 414'), { status: 414 }))
+    useStore.getState().ensureContent(ch)
+    await vi.runAllTimersAsync()
+    expect((api.raw as any).mock.calls.length).toBe(1)
+    expect(useStore.getState().contentById['x']).toBeUndefined()
+    vi.useRealTimers()
+  })
+
+  it('5xx 仍按可恢复处理:继续退避重试', async () => {
+    vi.useFakeTimers()
+    ;(api.raw as any)
+      .mockRejectedValueOnce(Object.assign(new Error('HTTP 503'), { status: 503 }))
+      .mockResolvedValueOnce({ content: 'later', mtime: 5 })
+    useStore.getState().ensureContent(ch)
+    await vi.runAllTimersAsync()
+    expect(useStore.getState().contentById['x']?.text).toBe('later')
     vi.useRealTimers()
   })
 })
