@@ -1,6 +1,32 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+/**
+ * 打磨稿(design-preview/*.html)只在 dev 同源可达,供稿子里的活 iframe 挂真页面。
+ * 它绝不能放进 client/public:publicDir 会被构建原样复制进产物,而 workbox 的
+ * globPatterns 含 html —— 内部评审稿就会被部署出去并长期缓存。
+ */
+function serveDesignPreview(): Plugin {
+  const dir = fileURLToPath(new URL('./design-preview', import.meta.url))
+  return {
+    name: 'serve-design-preview',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/design-preview', (req, res, next) => {
+        // basename 一刀:请求里带 ../ 也走不出这个目录。
+        const file = path.join(dir, path.basename(req.url.split('?')[0]))
+        if (!file.startsWith(dir) || !fs.existsSync(file)) return next()
+        res.setHeader('content-type', 'text/html; charset=utf-8')
+        res.setHeader('cache-control', 'no-store')
+        fs.createReadStream(file).pipe(res)
+      })
+    },
+  }
+}
 
 export default defineConfig(({ mode }) => {
   // `vite build --mode static`:纯静态(浏览器)构建,输出到 dist/static,相对 base 便于任意路径托管。
@@ -10,14 +36,17 @@ export default defineConfig(({ mode }) => {
   base: isStatic ? './' : '/',
   plugins: [
     react(),
+    serveDesignPreview(),
     // PWA 仅用于静态部署:可安装、离线可读、重复访问秒开;autoUpdate 避免卡旧版本。
     ...(isStatic ? [VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'MarkBook · 文集',
+        // 安装名不带「· 文集」:英文界面用户装出来的应用若叫中文名，既读不出也搜不到。
+        // 中文题旨留在 description 里，并给英文界面用户一句对应的译文。
+        name: 'MarkBook',
         short_name: 'MarkBook',
-        description: '散落文本,聚合成书 —— 本地 Markdown / 纯文本聚合阅读器,纯本地、零上传',
+        description: '散落文本，聚合成书 · Scattered text, gathered into one local-first book',
         lang: 'zh-CN',
         theme_color: '#2c5a80',
         background_color: '#ffffff',
