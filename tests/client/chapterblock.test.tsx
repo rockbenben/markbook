@@ -86,4 +86,18 @@ describe('ChapterBlock', () => {
     expect(container.textContent).toContain('MARKTWO')
     expect(container.textContent).not.toContain('MARKONE')
   })
+  it('标题层级:章标题站在正文小节之上,锚点跟着走', () => {
+    // 章标题必须是 H2、正文 ## 降一级到 H3:文档大纲里小节不许排在书名之前,两级也要看得出差别。
+    const { container } = render(
+      <ChapterBlock chapter={ch} view="render" content={'## 第一节\n文本\n\n### 附记\n更多'} />,
+    )
+    expect(container.querySelector('.chapter-title')?.tagName).toBe('H2')
+    const first = container.querySelector('h3')
+    expect(first?.textContent).toContain('第一节')
+    expect(container.querySelector('h4')?.textContent).toContain('附记')
+    // 正文里不该再出现第二个 H2(章标题独占该级)
+    expect(container.querySelectorAll('.chapter h2')).toHaveLength(1)
+    // 章内大纲靠 id 定位:降级后锚点必须还在,且仍由 rehype-slug 按标题文本生成
+    expect(first?.id).toBe('第一节')
+  })
 })

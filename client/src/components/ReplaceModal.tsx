@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { App, Button, Input, List, Modal, Space, Switch, Tooltip, Typography } from 'antd'
+import { App, Button, Input, List, Modal, Space, Switch, Typography } from 'antd'
 import { SwapOutlined } from '@ant-design/icons'
 import { api } from '../api'
 import { useStore } from '../store'
@@ -11,8 +11,8 @@ type Preview = { total: number; chapters: { id: string; title: string; count: nu
 export function ReplaceModal() {
   const t = useStore((s) => s.t)
   const lang = useStore((s) => s.lang)
-  // 数字分组跟界面语言走。原先写死 'zh-CN',改 i18n 时只把参数删了,
-  // 等于退回浏览器默认区域 —— ar-EG 下会渲染出东阿拉伯数字。
+  // 数字分组跟界面语言走,不留写死的区域:那等于退回浏览器默认区域,
+  // ar-EG 下会渲染出东阿拉伯数字。
   const nf = (n: unknown) => Number(n).toLocaleString(LOCALE_TAG[lang])
   const { message, modal } = App.useApp()
   const [open, setOpen] = useState(false)
@@ -64,15 +64,15 @@ export function ReplaceModal() {
 
   return (
     <>
-      <Tooltip title={t.findReplaceWhole}>
-        <Button icon={<SwapOutlined />} onClick={() => setOpen(true)}>{t.findReplace}</Button>
-      </Tooltip>
+      {/* 菜单项自带文字，不再叠一层 tooltip：同菜单里的 BarButton 也不叠。 */}
+      <Button icon={<SwapOutlined />} onClick={() => setOpen(true)}>{t.findReplace}</Button>
       <Modal
         title={t.findReplaceTitle}
         open={open}
         onCancel={close}
         destroyOnHidden
         footer={[
+          <Button key="cancel" onClick={close}>{t.cancel}</Button>,
           <Button key="preview" onClick={doPreview} loading={busy}>{t.preview}</Button>,
           <Button key="replace" type="primary" danger onClick={doReplaceAll} disabled={busy}>{t.replaceAll}</Button>,
         ]}

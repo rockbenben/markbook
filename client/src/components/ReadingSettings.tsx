@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Button, Popover, Segmented, Slider, Space, Switch, Typography } from 'antd'
 import { FontSizeOutlined } from '@ant-design/icons'
 import { useStore, type FontFamilyPref, type PaperPref } from '../store'
@@ -26,7 +27,7 @@ const PAPER_OPTIONS: { label: keyof UIStrings; value: PaperPref }[] = [
 
 /**
  * 设置行。默认标签在上、控件占满宽度;inline 用于开关这类窄控件,标签与控件左右分置。
- * 原先「首行缩进」那一行自己写了一套 Flex,和其余五行两套写法并存。
+ * 所有设置行都走这里,不要再各自拼一套 Flex。
  */
 function Row(
   { label, hint, inline, children }:
@@ -80,8 +81,8 @@ function ReadingControls() {
           onChange={(maxWidth) => setReading({ maxWidth })}
         />
       </Row>
-      {/* 非「默认」背景会锁住顶栏的明暗切换。原先只有那个禁用按钮的 tooltip 解释,
-          用户先看到的是「按钮为什么是灰的」,而原因在这里 —— 把说明放到因的一侧。 */}
+      {/* 非「默认」背景会锁住顶栏的明暗切换。解释要放在「因」这一侧(背景行上),
+          而不是只挂在那个禁用按钮的 tooltip 里 —— 用户先撞见的是「按钮为什么是灰的」。 */}
       <Row label={t.paper} hint={reading.paper !== 'default' ? t.themeLockedHint : undefined}>
         <Segmented<PaperPref>
           block
@@ -99,15 +100,19 @@ function ReadingControls() {
 
 export function ReadingSettings({ compact }: { compact?: boolean }) {
   const t = useStore((s) => s.t)
+  // 受控只为一件事:把「开着」这个状态说给读屏听(aria-expanded)。
+  const [open, setOpen] = useState(false)
   return (
     <Popover
       trigger="click"
+      open={open}
+      onOpenChange={setOpen}
       placement="bottomRight"
       title={t.readingSettings}
       content={<ReadingControls />}
     >
       {/* compact:窄档只留图标,省下的宽度让给搜索框 */}
-      <Button type="text" icon={<FontSizeOutlined />} aria-label={t.readingSettings}>
+      <Button type="text" icon={<FontSizeOutlined />} aria-label={t.readingSettings} aria-expanded={open}>
         {compact ? null : 'Aa'}
       </Button>
     </Popover>

@@ -48,6 +48,8 @@ export interface UIStrings {
   create: string;
   preview: string;
   loading: string;
+  loadChapterFailed: string;
+  retry: string;
   prevPage: string;
   nextPage: string;
 
@@ -83,7 +85,6 @@ export interface UIStrings {
   discardAndReload: string;
 
   /* 整理（TidyModal 的规则项） */
-  tidyTitle: string;
   tidyTooltip: string;
   tidyGarbled: string;
   tidyWatermark: string;
@@ -103,6 +104,8 @@ export interface UIStrings {
   tidyPreviewTitle: string;
   tidyPreviewEmpty: string;
   tidyNothingInChapter: string;
+  tidyEffectLines: string;
+  tidyPreviewTruncated: string;
 
   /* 查找替换 */
   findReplace: string;
@@ -151,6 +154,7 @@ export interface UIStrings {
   rootDirRequired: string;
   rootDirPlaceholder: string;
   browseDirs: string;
+  collapse: string;
   parentDir: string;
   browseFailed: string;
   cannotBrowseHere: string;
@@ -177,7 +181,6 @@ export interface UIStrings {
   replaceConfirmTitle: string;
   replaceConfirmBody: string;
   replaceFailed: string;
-  findReplaceWhole: string;
   findReplaceTitle: string;
   regexShort: string;
   replacedSummary: string;
@@ -217,8 +220,10 @@ export interface UIStrings {
   volumePos: string;
   currentChapter: string;
   progressPercent: string;
+  readingProgress: string;
   wsDisconnected: string;
   editChapter: string;
+  editChapterNamed: string;
   loadingEditor: string;
   unbookmark: string;
   bookmarkCurrent: string;
@@ -231,7 +236,6 @@ export interface UIStrings {
   noSearchResults: string;
   searchFailed: string;
   searchFullText: string;
-  noChaptersToShow: string;
   aggregateTagline: string;
   aggregateIntro: string;
   chapterActions: string;

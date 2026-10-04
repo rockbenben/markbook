@@ -44,6 +44,10 @@ interface Props {
  */
 export function DirectoryBrowser({ initialPath, onSelect }: Props) {
   const t = useStore((s) => s.t)
+  // 默认收起:整棵树展开会把设置弹窗顶到比视口还高,主操作键「应用」落在屏外 ——
+  // 而第一次配置书库的人最需要看到这个键。
+  // 顺带:没展开就不请求 /api/browse,不再每次打开设置就列一遍目录。
+  const [open, setOpen] = useState(false)
   const [treeData, setTreeData] = useState<TreeDataNode[]>([])
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
   const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([])
@@ -76,10 +80,18 @@ export function DirectoryBrowser({ initialPath, onSelect }: Props) {
   }
 
   useEffect(() => {
-    void loadRoot(initialPath || undefined)
-    // 仅挂载时载入一次;之后的定位由用户在树里操作。
+    // 展开时才列目录:服务端内容可能已变,所以每次展开重新取一次;收起时不发请求。
+    if (open) void loadRoot(initialPath || undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [open])
+
+  if (!open) {
+    return (
+      <Button size="small" icon={<FolderOutlined />} onClick={() => setOpen(true)}>
+        {t.browseDirs}
+      </Button>
+    )
+  }
 
   return (
     <>
@@ -95,6 +107,7 @@ export function DirectoryBrowser({ initialPath, onSelect }: Props) {
         {drives.map((d) => (
           <Button key={d} size="small" onClick={() => void loadRoot(d)}>{d}</Button>
         ))}
+        <Button size="small" type="text" onClick={() => setOpen(false)}>{t.collapse}</Button>
       </Space>
       {error ? <Alert type="warning" showIcon message={error} style={{ marginBottom: 8 }} /> : null}
       <div className="mb-dirtree">

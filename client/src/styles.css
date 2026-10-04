@@ -3,9 +3,10 @@
    磁青(书衣靛蓝)为主色、宣纸与墨为纸面、朱砂(藏书印)为唯一强调红,
    订线(缝线纹样)作为贯穿章节分隔 / 目录书脊 / logo 的签名元素。 */
 :root {
-  --bg: #ffffff; --fg: #1a1a1a; --muted: #666; --border: #e2e2e2;
+  --bg: #ffffff; --fg: #1a1a1a; --muted: #5c5c5c; --border: #e2e2e2;
   --accent: #2c5a80; --panel: #f7f7f7; --active: #e7eef5;
   --mb-seal: #be3b2a;          /* 朱砂:书签(藏书印)专用,不作他用 */
+  --mb-scroll-shadow: rgba(0, 0, 0, 0.22);   /* 横向溢出代码块的边缘提示影 */
   --mb-display: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', SimSun, Georgia, serif;
   --scrollbar-thumb: rgba(0, 0, 0, 0.22); --scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
 }
@@ -13,6 +14,7 @@
   --bg: #1e1e1e; --fg: #e6e6e6; --muted: #999; --border: #333;
   --accent: #8fb6db; --panel: #252526; --active: #2d3a4d;
   --mb-seal: #d96a50;
+  --mb-scroll-shadow: rgba(0, 0, 0, 0.6);
   --scrollbar-thumb: rgba(255, 255, 255, 0.22); --scrollbar-thumb-hover: rgba(255, 255, 255, 0.42);
 }
 * { box-sizing: border-box; }
@@ -54,12 +56,23 @@ body { margin: 0; }
     linear-gradient(var(--border), var(--border)) right center / 46px 1px;
   background-repeat: no-repeat;
 }
-.chapter h2.chapter-title {
+/* 章标题 = 书名:磁青 + 显示宋体。选择器不锁标签名 —— 组件用的是 Typography.Title,
+   它的 level 会变,锁死标签的样式就会静默失效,而失效长得像「本来就这样」。 */
+.chapter .chapter-title {
   color: var(--accent);
   font-family: var(--mb-display);
   font-weight: 600;
   letter-spacing: 0.02em;
+  font-size: 1.75em;
+  margin: 0 0 0.4em;
 }
+/* 标题梯子:章标题 > 章内小节 > 更深层级。正文里的 markdown 标题落在阅读字号上,
+   不跟随浏览器默认(默认 h2 与章标题同为 24px 且更粗,读者分不清「书的开头」和「章里的一节」)。
+   从 h3 起排是因为 ChapterBlock 把正文标题整体降了一级(源文 ## 渲染成 h3),别按源文级别写。 */
+.chapter h3 { font-size: 1.3em; }
+.chapter h4 { font-size: 1.12em; }
+.chapter h5 { font-size: 1em; }
+.chapter h6 { font-size: 0.95em; }
 /* frontmatter 标签:标题下一行,缩进归零。 */
 .chapter-tags { margin: 6px 0 0; text-indent: 0; }
 /* 中文小说排版:首行缩进(可切换)+ 段间距。 */
@@ -116,11 +129,18 @@ body { margin: 0; }
 .mb-read-row-inline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mb-read-row-inline .mb-read-control { margin-top: 0; }
 
+/* 整理弹窗:每条规则改了几行(左规则名、右行数)。 */
+.mb-tidy-effects { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; }
+.mb-tidy-effects li { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; }
+
 /* 目录树容器:限高内滚,避免长目录把弹窗撑破。 */
 .mb-dirtree {
   max-height: 240px; overflow: auto;
   border: 1px solid var(--border); border-radius: 6px; padding: 4px;
 }
+
+/* 章节读不到时的那一行:话和「重试」并排在同一基线上,别把按钮甩到下一行。 */
+.mb-load-failed { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); }
 
 /* 顶栏测量容器:ResizeObserver 观察它的宽度来决定收纳档位。 */
 .mb-toolbar { width: 100%; min-width: 0; }
@@ -129,6 +149,10 @@ body { margin: 0; }
    分组本身是信息,所以用签名纹样承载,而不是通用竖线。 */
 .mb-stitch-v {
   flex: 0 0 auto;
+  /* display 必须有:顶栏右侧那两条住在 antd Space 的 .ant-space-item(block)里,
+     不是 flex item,所以 flex 不生效、inline 又让 width/height 被忽略 —— 量出来 0×0,
+     分组线只剩品牌后那一条。 */
+  display: block;
   width: 4px;
   height: 22px;
   background:
@@ -162,11 +186,27 @@ body { margin: 0; }
 }
 .chapter-outline-list a:hover { color: var(--accent); }
 @media (max-width: 1100px) { .chapter-outline { display: none; } }
+/* 面板展开时让出轨道:它钉在视口右缘,而正文列按上限居中,中间那一段两者必然重叠。
+   只在「会重叠」的区间让位:更宽本来不碰,更窄面板自身已隐藏。
+   宽度与断点以上面 .chapter-outline / .main 的定义为准,这里不复述数字。 */
+@media (min-width: 1100.02px) and (max-width: 1599.98px) {
+  html[data-outline-open='1'] .main { padding-inline-end: 252px; }
+}
 
-/* 渲染出的代码块与行内代码(react-markdown)。 */
+/* 渲染出的代码块与行内代码(react-markdown)。
+   代码块常比阅读栏宽(一行长代码就够),纯 overflow-x:auto 不给任何线索,
+   读者不知道右边还有内容。这里用 CSS 滚动阴影:两侧渐隐只在真有内容被藏住时出现。 */
 .chapter pre {
-  background: var(--panel); padding: 12px 14px; border-radius: 6px;
+  padding: 12px 14px; border-radius: 6px;
   overflow-x: auto; text-indent: 0; line-height: 1.5;
+  background:
+    linear-gradient(90deg, var(--panel) 30%, transparent) left center / 32px 100%,
+    linear-gradient(-90deg, var(--panel) 30%, transparent) right center / 32px 100%,
+    radial-gradient(farthest-side at 0 50%, var(--mb-scroll-shadow), transparent) left center / 12px 100%,
+    radial-gradient(farthest-side at 100% 50%, var(--mb-scroll-shadow), transparent) right center / 12px 100%,
+    var(--panel);
+  background-attachment: local, local, scroll, scroll, local;
+  background-repeat: no-repeat;
 }
 .chapter pre code { background: none; padding: 0; font-size: 0.88em; }
 .chapter :not(pre) > code {
@@ -175,7 +215,7 @@ body { margin: 0; }
 
 /* 代码语法高亮(highlight.js 类名)。配色用变量,随明暗主题切换;GitHub 风格。 */
 :root {
-  --hl-comment: #6a737d; --hl-keyword: #d73a49; --hl-string: #032f62; --hl-number: #005cc5;
+  --hl-comment: #6a737d; --hl-keyword: #c22f3d; --hl-string: #032f62; --hl-number: #005cc5;
   --hl-title: #6f42c1; --hl-attr: #005cc5; --hl-builtin: #e36209; --hl-meta: #6a737d;
 }
 [data-theme='dark'] {
@@ -207,11 +247,13 @@ pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; backgroun
   margin-bottom: 12px;
 }
 .chapter-editor-status { color: var(--muted); font-size: 12px; }
-.chapter-editor .split { grid-template-columns: 1fr 1fr; gap: 14px; }
+.chapter-editor .split { grid-template-columns: 1fr 1fr; gap: 14px; flex: 1 1 auto; min-height: 0; }
 
 .chapter-editor-host,
 .chapter-editor-preview {
-  height: calc(100vh - 160px);
+  /* 撑满抽屉剩余高度:高度由 flex 传下来,不用 calc(100vh - 估算值) ——
+     页头会换档折行,任何写死的减法总有一档把最后一行切到屏外。 */
+  height: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
@@ -257,9 +299,9 @@ pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; backgroun
   letter-spacing: 0.12em;
   color: inherit;
 }
-/* 最窄档只留标志图形。原先这里是 `@media (max-width: 720px)`,但顶栏其余控件都按
-   **容器宽度**收纳:目录展开时容器比视口窄 300px,两套断点会打架(容器 380 而视口 900 时
-   品牌文字不肯让位,顶栏就横向溢出)。统一由档位驱动,只留一个真相源。 */
+/* 最窄档只留标志图形。这里不另写视口断点:顶栏其余控件都按**容器宽度**收纳,
+   目录展开时容器比视口窄一个侧栏,两套断点会打架(品牌文字不肯让位 → 横向溢出)。
+   统一由档位驱动,只留一个真相源。 */
 .mb-brand-compact .mb-brand-cn,
 .mb-brand-compact .mb-brand-en { display: none; }
 
@@ -274,6 +316,11 @@ pre.raw { white-space: pre-wrap; font-family: ui-monospace, monospace; backgroun
   background-position: right top;
   background-repeat: no-repeat;
 }
+
+/* 目录行的章节操作触发器:常驻可见(触屏没有 hover,藏起来等于没收重命名/删除),
+   但用 --muted 而非「主色 + 0.55 透明度」——后者量出来约 2.8:1,低于非文本 3:1 门槛。 */
+.cv-toc-actions { color: var(--muted); }
+.cv-toc-actions:hover, .cv-toc-actions:focus-visible { color: var(--fg); }
 
 /* 空状态首屏:品牌主视觉(封面锁定 + 题旨),下接来源选择。 */
 .mb-hero {

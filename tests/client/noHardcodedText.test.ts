@@ -14,15 +14,13 @@ const SRC = join(__dirname, '../../client/src')
 const ALLOW = [
   'i18n/',                    // 文案表本身
   'components/BrandMark.tsx', // 品牌书标（SVG 里的「文」「集」二字）
-  // 曾经有 'natural.ts'（中文数字字符表）。那张表已移进 core/natsort.ts，
-  // 该文件如今只剩章节排序辅助函数，没有中文字面量了 —— 再豁免它等于留一个盲区。
+  // 加豁免前先确认那个文件今天真的还有中文字面量:用不上的豁免等于一个永久盲区。
 ]
 // 品牌名在顶栏/首屏以中英双行呈现，属于 logo 的一部分，不随界面语言翻译。
 const ALLOW_LITERAL = ['文集']
 
-// 汉字 + CJK 标点 + 全角形式。
-// 原先只有 [一-鿿](U+4E00–U+9FFF),漏掉了标点:ExportModal 里写死的全角冒号
-// `${t.volume}：${v}` 就这样溜过去,英文界面渲染成 "Volume：Part One"。
+// 汉字 + CJK 标点 + 全角形式。只匹配 [一-鿿](U+4E00–U+9FFF) 会让写死的全角冒号
+// 从这条筛子底下溜过去,英文界面就渲染成 "Volume：Part One"。
 // U+3000–U+303F 是 CJK 标点(、。「」等),U+FF01–U+FF65 是全角形式(：！？（）等)。
 const CJK = /[一-鿿　-〿！-･]/
 

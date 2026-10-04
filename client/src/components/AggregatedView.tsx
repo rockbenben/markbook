@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
-import { Button, Empty, Flex, Spin } from 'antd'
+import { Button, Flex, Spin, Typography } from 'antd'
 import GithubSlugger from 'github-slugger'
 import { useStore } from '../store'
 import { CJK_WORDMARK } from '../i18n'
@@ -206,7 +206,7 @@ export function AggregatedView() {
   if (!loaded) {
     return (
       <Flex className="main" style={readingStyle} align="center" justify="center">
-        <Spin tip={t.loading} size="large"><div style={{ padding: 24 }} /></Spin>
+        <Spin description={t.loading} size="large"><div style={{ padding: 24 }} /></Spin>
       </Flex>
     )
   }
@@ -215,35 +215,35 @@ export function AggregatedView() {
   if (chapters.length === 0) {
     return (
       <Flex className="main" style={readingStyle} align="center" justify="center">
-        {api.mode === 'browser' ? (
-          // 静态模式首屏 = 品牌主视觉(封面书标 + 题旨)+ 来源选择:
-          // 打开即知道这是什么、为何可信、下一步做什么。
-          <div className="mb-hero" style={{ overflowY: 'auto', maxHeight: '100%' }}>
-            <BrandMark size={72} />
-            {CJK_WORDMARK[lang] ? (
-              <>
-                <div className="mb-hero-name">文集</div>
-                <div className="mb-hero-latin">MARKBOOK</div>
-              </>
-            ) : (
-              // 英文:拉丁名接管主字标,不再另起一行重复 MARKBOOK
-              <div className="mb-hero-name mb-hero-name-latin">MarkBook</div>
-            )}
-            <p className="mb-hero-tagline">{t.aggregateTagline}</p>
-            <p className="mb-hero-sub">{t.aggregateIntro}</p>
-            <div className="mb-hero-stitch" aria-hidden />
+        {/* 空库首屏两种后端共用同一张脸:打开就知道这是什么、下一步做什么。
+            以前品牌主视觉只给静态版,而 CLI / 服务端用户(产品的主路径)看到的是一枚 antd Empty。 */}
+        <div className="mb-hero" style={{ overflowY: 'auto', maxHeight: '100%' }}>
+          <BrandMark size={72} />
+          {CJK_WORDMARK[lang] ? (
+            <>
+              <div className="mb-hero-name">文集</div>
+              <div className="mb-hero-latin">MARKBOOK</div>
+            </>
+          ) : (
+            // 英文:拉丁名接管主字标,不再另起一行重复 MARKBOOK
+            <div className="mb-hero-name mb-hero-name-latin">MarkBook</div>
+          )}
+          <p className="mb-hero-tagline">{t.aggregateTagline}</p>
+          <p className="mb-hero-sub">{t.aggregateIntro}</p>
+          <div className="mb-hero-stitch" aria-hidden />
+          {api.mode === 'browser' ? (
+            // 静态模式:来源选择(授权文件夹 / 单文件 / 示例)
             <SourcePicker />
-          </div>
-        ) : (
-          <Empty description={t.noChaptersToShow} style={{ maxWidth: 420, textAlign: 'center' }}>
-            <div style={{ marginBottom: 16, color: 'var(--ant-color-text-secondary, #999)', fontSize: 13 }}>
-              {t.emptyServerHint}
+          ) : (
+            // 服务端模式:书库由配置决定,出口就是设置弹窗
+            <div className="mb-source" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <Typography.Text type="secondary" style={{ fontSize: 13, textAlign: 'center' }}>{t.emptyServerHint}</Typography.Text>
+              <Button type="primary" onClick={() => window.dispatchEvent(new Event('cv:open-settings'))}>
+                {t.openSettings}
+              </Button>
             </div>
-            <Button type="primary" onClick={() => window.dispatchEvent(new Event('cv:open-settings'))}>
-              {t.openSettings}
-            </Button>
-          </Empty>
-        )}
+          )}
+        </div>
       </Flex>
     )
   }

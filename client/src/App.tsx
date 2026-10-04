@@ -7,7 +7,7 @@ import { EditOutlined, FullscreenExitOutlined, StarFilled, StarOutlined } from '
 import { useStore } from './store'
 import { api } from './api'
 import { useChapterNav } from './useChapterNav'
-import { LOCALE_TAG, type Lang } from './i18n'
+import { fmt, LOCALE_TAG, type Lang } from './i18n'
 import { Toolbar } from './components/Toolbar'
 import { TocPanel } from './components/TocPanel'
 import { AggregatedView } from './components/AggregatedView'
@@ -22,16 +22,20 @@ const { Header, Sider, Content, Footer } = Layout
 const ANTD_LOCALE = { zh: zhCN, 'zh-TW': zhTW, en: enUS } satisfies Record<Lang, typeof enUS>
 
 // 品牌主色:磁青(线装书书衣的靛蓝)。暗色下提亮保证对比度。
-const BRAND_TOKEN = { colorPrimary: '#2c5a80', colorInfo: '#2c5a80', colorLink: '#2c5a80' }
-const BRAND_TOKEN_DARK = { colorPrimary: '#8fb6db', colorInfo: '#8fb6db', colorLink: '#8fb6db' }
+// colorTextDescription 是 antd 从文字基色按固定透明度派生的次要文字色,那个默认值在正文里
+// 达不到 WCAG AA。这里按各档底色反解出「刚好过 4.5:1」的透明度逐档给出,
+// 状态栏 / 提示语 / 表单 extra 全部跟随,不再靠人眼判断灰不灰。
+export const BRAND_TOKEN = { colorPrimary: '#2c5a80', colorInfo: '#2c5a80', colorLink: '#2c5a80', colorTextDescription: 'rgba(0, 0, 0, 0.55)' }
+export const BRAND_TOKEN_DARK = { colorPrimary: '#8fb6db', colorInfo: '#8fb6db', colorLink: '#8fb6db', colorTextDescription: 'rgba(255, 255, 255, 0.5)' }
 
 // 「背景」预设 → antd 主题 token,覆盖全套背景色(Layout/容器/浮层)与文字色,作用于整个应用。
-const PAPER_THEME: Record<string, { token: Record<string, string>; dark: boolean }> = {
+export const PAPER_THEME: Record<string, { token: Record<string, string>; dark: boolean }> = {
   default: { token: {}, dark: false },
   sepia: {
     token: {
       colorBgBase: '#f3ead6', colorBgLayout: '#ebe1c9', colorBgContainer: '#f6efdd',
       colorBgElevated: '#f8f2e6', colorTextBase: '#3a3326', colorBorderSecondary: '#e0d4b8',
+      colorTextDescription: 'rgba(58, 51, 38, 0.72)',
     },
     dark: false,
   },
@@ -39,10 +43,11 @@ const PAPER_THEME: Record<string, { token: Record<string, string>; dark: boolean
     token: {
       colorBgBase: '#ece5d6', colorBgLayout: '#e3dac6', colorBgContainer: '#efe9dc',
       colorBgElevated: '#f3eee2', colorTextBase: '#33312b', colorBorderSecondary: '#d9cdb4',
+      colorTextDescription: 'rgba(51, 49, 43, 0.73)',
     },
     dark: false,
   },
-  night: { token: { colorBgBase: '#17171a', colorBgLayout: '#141417', colorTextBase: '#cfcfcf' }, dark: true },
+  night: { token: { colorBgBase: '#17171a', colorBgLayout: '#141417', colorTextBase: '#cfcfcf', colorTextDescription: 'rgba(207, 207, 207, 0.57)' }, dark: true },
 }
 
 export default function App() {
@@ -88,7 +93,10 @@ export default function App() {
     if (immersive) {
       tocBeforeImmersive.current = tocCollapsed
     } else {
-      setTocCollapsed(tocBeforeImmersive.current)
+      // 快照可能是宽屏时拍的:沉浸期间视口变窄(转屏 / 分屏 / 拖窗)时照抄快照,会把 300px 目录
+      // 压回窄屏、正文只剩 122px,而且不会自愈 —— 媒体查询只在「跨越」断点时回调。窄屏一律收起。
+      const narrow = typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches
+      setTocCollapsed(tocBeforeImmersive.current || narrow)
     }
     // 仅在 immersive 翻转时运行;tocCollapsed 故意不入依赖(进入时快照、退出时恢复)。
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,12 +245,12 @@ export default function App() {
                 getContainer={false}          /* 在 Content 内就地渲染,绝对定位只覆盖阅读栏 */
                 rootStyle={{ position: 'absolute' }}
                 placement="right"
-                width="100%"
-                title={t.editChapter}
+                size="100%"
+                title={editingChapter ? fmt(t.editChapterNamed, { title: editingChapter.title }) : t.editChapter}
                 destroyOnHidden
               >
                 {editingChapter ? (
-                  <Suspense fallback={<Spin tip={t.loadingEditor} style={{ margin: 24 }} />}>
+                  <Suspense fallback={<Spin description={t.loadingEditor} size="large"><div style={{ padding: 48 }} /></Spin>}>
                     <ChapterEditor chapter={editingChapter} />
                   </Suspense>
                 ) : null}

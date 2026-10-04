@@ -107,4 +107,39 @@ describe('文案表', () => {
       expect(all.includes(ch), `繁体表含简体字「${ch}」`).toBe(false)
     }
   })
+
+  /**
+   * 标点的形状判据,不是逐条清单:汉字之间不许夹半角逗号/括号(「读取文件夹失败,请重试」
+   * 是一例)。逐条清单只防那几条被改回去,钉形状才让新加的键自动受管。
+   */
+  it('简体表的汉字之间不出现半角标点', async () => {
+    const { TABLES } = await import('../../client/src/i18n')
+    const bad = Object.entries(TABLES.zh)
+      .filter(([, v]) => /[一-鿿][,;:?!()]/.test(v))
+      .map(([k, v]) => `${k}=${v}`)
+    expect(bad, bad.join(' | ')).toEqual([])
+  })
+
+  it('英文表不残留中文字符与全角标点', async () => {
+    const { TABLES } = await import('../../client/src/i18n')
+    // 只点名 CJK 标点 / 汉字 / 全角形式三段。别写成 [ -〿…] —— 那一段从空格起跳,
+    // 会把整张英文表都判成「含中文」。
+    const cjk = /[　-〿一-鿿＀-￯]/
+    const bad = Object.entries(TABLES.en)
+      .filter(([, v]) => cjk.test(v))
+      .map(([k, v]) => `${k}=${v}`)
+    expect(bad, bad.join(' | ')).toEqual([])
+  })
+
+  it('同一键的 {占位符} 集合在三张表里一致(换语序可以,换名字不行)', async () => {
+    const { TABLES, LANGS } = await import('../../client/src/i18n')
+    const slots = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(',')
+    const asRow = (l: keyof typeof TABLES) => TABLES[l] as unknown as Record<string, string>
+    const base = asRow('zh')
+    for (const l of LANGS) {
+      for (const k of Object.keys(base)) {
+        expect(slots(asRow(l)[k]), `${l}.${k}`).toBe(slots(base[k]))
+      }
+    }
+  })
 })

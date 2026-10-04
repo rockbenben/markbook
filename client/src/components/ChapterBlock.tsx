@@ -38,10 +38,31 @@ const REHYPE_PLUGINS: PluggableList = [rehypeSlug, rehypeAutolink, [rehypeHighli
 
 // 按章节路径缓存自定义 components,保持引用稳定(避免 ReactMarkdown 每次全量重渲)。
 const componentsCache = new Map<string, Components>()
+
+/**
+ * 正文标题整体降一级:一章的标题是 H2,它的小节就得是 H3。
+ * 不降级的话,「章里的一节」在文档大纲里比书名还高一级,屏幕阅读器读出的顺序是反的。
+ * id 由 rehype-slug 挂在节点上、经 props 原样传进来,所以锚点与章内大纲仍然命中。
+ */
+const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
+function headingShift(): Components {
+  const out: Components = {}
+  HEADING_TAGS.forEach((tag, i) => {
+    const shifted = HEADING_TAGS[Math.min(i + 1, 5)] as 'h1'
+    out[tag] = ({ node: _node, ...rest }) => {
+      const Tag = shifted
+      return <Tag {...rest} />
+    }
+  })
+  return out
+}
+const HEADING_SHIFT = headingShift()
+
 function mdComponentsFor(chapterPath: string): Components {
   let c = componentsCache.get(chapterPath)
   if (!c) {
     c = {
+      ...HEADING_SHIFT,
       // 跨文件链接:相对 .md/.txt 链接点击时跳到对应章,而非离开页面。外链照常。
       a({ href, children, ...rest }) {
         const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -121,7 +142,8 @@ function ChapterBlockImpl({ chapter, view, content }: Props) {
   return (
     <section className="chapter" data-chapter-id={chapter.id}>
       <header>
-        <Typography.Title level={3} className="chapter-title" style={{ margin: 0 }}>
+        {/* 书名 = H2:正文标题已整体降一级(见 headingShift),章标题必须站在它们之上。 */}
+        <Typography.Title level={2} className="chapter-title">
           {chapter.title}
         </Typography.Title>
         {tags.length > 0 ? (

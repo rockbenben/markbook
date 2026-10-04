@@ -41,8 +41,7 @@ export function ExportModal() {
   }, [chapters])
 
   // 依赖里必须带上 t:少了它,切换语言后范围下拉会停在旧语言,而弹窗里其它文字都变了。
-  // 标签整句走文案表 —— 原先是 `${t.volume}：${v}`,那个全角冒号写死在模板串里,
-  // 英文界面会渲染成 "Volume：Part One"。
+  // 标签整句走文案表:把全角冒号写死在模板串里,英文界面会渲染成 "Volume：Part One"。
   const scopeOptions = useMemo(
     () => [
       { label: t.volumeLabel, value: ALL_SCOPE },
@@ -100,7 +99,8 @@ export function ExportModal() {
 
   return (
     <>
-      <Button icon={<ExportOutlined />} onClick={() => setOpen(true)} disabled={empty}>
+      {/* 空库时不 disable 触发键:灰掉的按钮说不出「为什么灰」,而弹窗里正好写着原因。 */}
+      <Button icon={<ExportOutlined />} onClick={() => setOpen(true)}>
         {t.export}
       </Button>
       <Modal

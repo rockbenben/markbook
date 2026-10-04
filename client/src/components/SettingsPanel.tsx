@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
-import { Alert, App, Form, Input, Modal, Select, Typography } from 'antd'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Alert, App, Form, Input, Modal, Select, Spin, Typography } from 'antd'
 import { api } from '../api'
 import { useStore } from '../store'
 import { LANGS, LANG_LABELS } from '../i18n'
 import { SourcePicker } from './SourcePicker'
-import { DirectoryBrowser } from './DirectoryBrowser'
 import type { AppConfig, SortMode } from '../../../shared/types'
+
+// 目录浏览要拉 antd Tree（含 rc-tree / rc-trigger），只在点开「目录浏览」时才需要 ——
+// 首屏不该为它付费。
+const DirectoryBrowser = lazy(() => import('./DirectoryBrowser').then((m) => ({ default: m.DirectoryBrowser })))
 
 interface FormValues {
   root: string
@@ -89,12 +92,18 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
       open
       title={t.settings}
       okText={t.apply}
-      cancelText={t.cancel}
+      /* 「取消」在这里是个谎:上面的「界面」节(语言)选完就已生效,关掉不会还原 ——
+         语言即时生效是有意的(看不懂界面的人不该先去找一个读不懂的按钮),
+         那就让页脚承认这一点:这一键只负责退出,不负责回滚。 */
+      cancelText={t.close}
       confirmLoading={busy}
       onOk={apply}
       onCancel={onClose}
       maskClosable={!busy}
       width={520}
+      /* 内容长过视口时在体内滚,页脚(取消 / 应用)始终钉得住。
+         以前整页不滚、弹窗 917px 高于 901px 视口,「应用」整条落在屏外。 */
+      styles={{ body: { maxHeight: 'calc(100vh - 240px)', overflowY: 'auto', paddingBlockEnd: 4 } }}
     >
       <Section title={t.interfaceSection} hint={t.appliesImmediately}>
         <label className="mb-set-row">
@@ -122,10 +131,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <Input placeholder={t.rootDirPlaceholder} />
               </Form.Item>
               <Form.Item label={t.browseDirs}>
-                <DirectoryBrowser
-                  initialPath={initialRoot}
-                  onSelect={(root) => form.setFieldsValue({ root })}
-                />
+                <Suspense fallback={<Spin size="small" />}>
+                  <DirectoryBrowser
+                    initialPath={initialRoot}
+                    onSelect={(root) => form.setFieldsValue({ root })}
+                  />
+                </Suspense>
               </Form.Item>
             </>
           )}

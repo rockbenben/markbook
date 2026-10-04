@@ -12,7 +12,7 @@ export function StatusBar() {
   const activeId = useStore((s) => s.activeChapterId)
   const wsStatus = useStore((s) => s.wsStatus)
   const total = chapters.reduce((n, c) => n + c.wordCount, 0)
-  // 数字分组也跟着语言走(原先写死 zh-CN)。
+  // 数字分组也跟着界面语言走,不写死区域。
   const fmt = (n: number) => Number(n).toLocaleString(LOCALE_TAG[lang])
   const readTime = formatReadingTime(estimateReadingMinutes(total), t)
   const index = activeId ? chapters.findIndex((c) => c.id === activeId) : -1
@@ -53,6 +53,8 @@ export function StatusBar() {
         percent={percent}
         size="small"
         showInfo={false}
+        /* role=progressbar 没有可及名时，读屏只能念出「进度条」而不知道是什么的进度。 */
+        aria-label={t.readingProgress}
         style={{ flex: '1 1 80px', minWidth: 60, marginBottom: 0 }}
       />
     </Flex>

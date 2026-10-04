@@ -75,7 +75,8 @@ export function SearchBox({ compact }: { compact?: boolean }) {
       // 工具栏换行时可收缩,避免把其它控件挤出可视区;窄屏下退到最小宽度后随行换行。
       style={{ flex: '1 1 200px', minWidth: compact ? 104 : 120, maxWidth: 320 }}
     >
-      <Input prefix={<SearchOutlined />} placeholder={t.searchFullText} />
+      {/* 与目录过滤框成套：可一键清空、有可及名（placeholder 不算 label，读屏只念得出「编辑组合框」）。 */}
+      <Input prefix={<SearchOutlined />} placeholder={t.searchFullText} allowClear aria-label={t.searchFullText} />
     </AutoComplete>
   )
 }

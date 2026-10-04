@@ -25,11 +25,11 @@ function jumpTo(id: string) {
 }
 
 /* ───────────────────────── 档位:按容器宽度收纳 ─────────────────────────
- * 顶栏原本用 flex-wrap 兜底,结果在 1100px 就断成两行(49px→97px)、480px 四行(181px)。
- * 在一个以「读」为本的产品里,chrome 不该这样吃掉内容,所以改为按宽度分档、
- * 超出的收进「更多」。
+ * 顶栏不靠 flex-wrap 兜底:换行会把 chrome 撑成两三行,在一个以「读」为本的产品里
+ * 它不该这样吃掉内容,所以按宽度分档、超出的收进「更多」。
  *
- * 用**容器宽度**而非视口断点:目录展开时顶栏可用宽度少 300px,视口断点会判断错档。
+ * 用**容器宽度**而非视口断点:目录展开时顶栏少一个侧栏的可用宽度,
+ * 视口断点会判断错档。
  */
 type Tier = 'full' | 'compact' | 'minimal'
 
@@ -105,7 +105,7 @@ function BookmarksMenu({ quiet }: { quiet?: boolean }) {
 
   return (
     <Popover content={content} title={t.bookmarks} trigger="click" placement="bottomRight" open={open} onOpenChange={setOpen}>
-      <Button type={quiet ? 'text' : undefined} icon={<BookOutlined />} aria-label={t.bookmarks} title={t.bookmarks} />
+      <Button type={quiet ? 'text' : undefined} icon={<BookOutlined />} aria-label={t.bookmarks} title={t.bookmarks} aria-expanded={open} />
     </Popover>
   )
 }
@@ -149,7 +149,7 @@ function MoreMenu({ extra }: { extra?: (close: () => void) => ReactNode }) {
     <Popover content={content} trigger="click" placement="bottomRight" open={open} onOpenChange={openMenu}>
       {/* 展开时强制收起 tooltip,否则它会盖住菜单第一项(与设置弹窗里的浮层同一处理)。 */}
       <Tooltip title={t.more} open={tipOpen && !open} onOpenChange={setTipOpen}>
-        <Button type="text" icon={<EllipsisOutlined />} aria-label={t.more} />
+        <Button type="text" icon={<EllipsisOutlined />} aria-label={t.more} aria-expanded={open} />
       </Tooltip>
     </Popover>
   )
@@ -198,6 +198,7 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
   const paper = useStore((s) => s.reading.paper)
   const setChapters = useStore((s) => s.setChapters)
   const refreshContent = useStore((s) => s.refreshContent)
+  const immersive = useStore((s) => s.immersive)
   const toggleImmersive = useStore((s) => s.toggleImmersive)
   const { hasPrev, hasNext, goPrev, goNext } = useChapterNav()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -248,6 +249,9 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
           icon={tocCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
           onClick={onToggleToc}
           aria-label={t.toc}
+          /* 可及名恒定,状态靠 aria-expanded 说 —— 否则读屏只听到一个「目录」按钮,
+             不知道按下去是展开还是收起。 */
+          aria-expanded={!tocCollapsed}
         />
       </Tooltip>
       {/* 英文界面去掉「文集」文字字标,让 MarkBook 接管主标位置;标志图形里仍有这二字。 */}
@@ -279,7 +283,7 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
         <ReadingSettings compact={minimal} />
         {!minimal ? (
           <Tooltip title={t.immersive}>
-            <Button type="text" icon={<FullscreenOutlined />} onClick={toggleImmersive} aria-label={t.immersive} />
+            <Button type="text" icon={<FullscreenOutlined />} onClick={toggleImmersive} aria-label={t.immersive} aria-pressed={immersive} />
           </Tooltip>
         ) : null}
 
@@ -300,6 +304,7 @@ export function Toolbar({ tocCollapsed, onToggleToc }: ToolbarProps) {
               onClick={toggleTheme}
               disabled={themeLocked}
               aria-label={t.toggleTheme}
+              aria-pressed={theme === 'dark'}
               style={themeLocked ? { pointerEvents: 'none' } : undefined}
             />
           </span>
